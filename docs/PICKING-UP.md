@@ -10,7 +10,7 @@ and how to continue. **Keep it current at every milestone**, and always `git pus
   `studiosnap`, `googlebook-capture-apis`.
 - Build/adb env: `~/.config/vscodebook/android.env`. Helper: `./ss` (see CLAUDE.md).
 
-## Status — Phase 4 recording (v1) COMPLETE; Phases 0-4 core all working
+## Status — Phases 0-4 core done + Settings/home + signed 0.1 release
 Verified on the HP Googlebook 14 (SDK 37.1) on 2026-09-27:
 - Project builds: Gradle 9.8 / AGP 9.4.1 (built-in Kotlin) / JDK 21 / Compose BOM 2026.09.00,
   minSdk 34 target 37, package `io.github.kuscher.studiosnap`.
@@ -66,10 +66,18 @@ Phase 2b/2c: text + crop + select/move tools, Frame/beautify panel, layers panel
   countdown, EXCLUDE the pill from the recording (currently the pill appears in the video),
   video result-card actions (trim/GIF/share).
 
-## Next — polish to make it a real installable app
-Phase 1c: DataStore Settings (key takeover, after-capture, bar position), first-run onboarding,
-Library grid (MediaStore), picker-mode fallback + auto-detect. Then 2b/2c editor (text/crop/select,
-Frame/beautify), scrolling capture, recording 4b. Then a signed release APK + README for the user.
+## Settings/home + release (2026-09-27)
+- Settings (SharedPreferences via util/Settings): key takeover, copy/save/card after capture, bar
+  position — wired into the service (onKeyEvent reads keyTakeover; onResult honours copy/save/card;
+  CaptureRoot honours barAtTop). SettingsActivity + a real home (MainActivity: status, buttons,
+  RECENT strip from MediaStore, tap opens Studio).
+- Signed release: key in ~/.config/studiosnap/keystore.jks (+ keystore.pass), NOT in git, SHA-256
+  E1:D1:CB:07:...:69:7A. `./gradlew :app:assembleRelease` -> 2.36 MB (R8), smoke-tested OK.
+  GitHub release v0.1 has the APK. **Back up the keystore privately; store the password in the pw
+  manager** (still TODO).
+
+## Next — user to try 0.1; then 4b (audio/pause/region/GIF, exclude pill), 2b/2c editor,
+## scrolling capture, first-run onboarding, picker-mode auto-detect.
 Remaining Phase 1 work:
 1. Capture engine: `takeScreenshot` (full/area-crop) and `takeScreenshotOfWindow`; ~333 ms limit.
 2. Selection layer in the full-screen overlay: freeze frame, dim outside, crosshair + loupe, W×H

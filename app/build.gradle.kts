@@ -16,10 +16,27 @@ android {
         versionName = "0.1"
     }
 
+    // Release signing config from ~/.config/studiosnap (never committed). Absent -> unsigned.
+    val keyDir = File(System.getProperty("user.home"), ".config/studiosnap")
+    val keyFile = File(keyDir, "keystore.jks")
+    val keyPassFile = File(keyDir, "keystore.pass")
+    signingConfigs {
+        if (keyFile.exists() && keyPassFile.exists()) {
+            create("release") {
+                storeFile = keyFile
+                val pw = keyPassFile.readText().trim()
+                storePassword = pw
+                keyAlias = "studiosnap"
+                keyPassword = pw
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("release")
         }
     }
     compileOptions {
