@@ -31,12 +31,18 @@ enum class CaptureKind { AREA, ELEMENT, WINDOW, SCREEN }
  * result is cropped from that frozen frame. Pointer coordinates are display pixels, 1:1 with the
  * full-screen overlay.
  */
+/** A UI element (accessibility node) in screen px, for element snapping in Area mode. */
+data class ElementInfo(val rect: Rect, val label: String)
+
 class CaptureSession(
     val context: Context,
     private val listWindows: () -> List<WinInfo>,
+    private val getElements: (Int) -> List<ElementInfo> = { emptyList() },
+    private val captureWindowBmp: (Int, (Bitmap?) -> Unit) -> Unit = { _, cb -> cb(null) },
     private val onResult: (Bitmap, CaptureKind, String) -> Unit,
     private val onDismiss: () -> Unit,
 ) {
+    private val elementCache = HashMap<Int, List<ElementInfo>>()
     var mode by mutableStateOf(CaptureMode.SHOT)
     var source by mutableStateOf(Source.AREA)
     var collapsed by mutableStateOf(false)
@@ -58,6 +64,13 @@ class CaptureSession(
     val sources get() = if (mode == CaptureMode.REC) recSources else shotSources
 
     val displaySize get() = frozenBmp?.let { it.width to it.height }
+
+    /** ARGB colour of the frozen frame under a point, or 0 if unavailable. */
+    fun colorAt(p: Offset): Int {
+        val b = frozenBmp ?: return 0
+        val x = p.x.toInt().coerceIn(0, b.width - 1); val y = p.y.toInt().coerceIn(0, b.height - 1)
+        return try { b.getPixel(x, y) } catch (e: Exception) { 0 }
+    }
 
     /** Called once the frozen frame is ready and the overlay is about to show. */
     fun onFrozen(bmp: Bitmap?, initialSource: Source?) {
@@ -96,7 +109,16 @@ class CaptureSession(
         hover = when (source) {
             Source.SCREEN -> Hover(fullRect(), "Display 1", false, null)
             Source.WINDOW, Source.SCROLL -> topWindowAt(p)?.let { Hover(it.rect, it.label, false, it.id) }
-            else -> null // element snapping arrives in a later step
+            Source.AREA, Source.TEXT -> {
+                val win = topWindowAt(p)
+                if (win == null) null
+                else {
+                    val els = elementCache.getOrPut(win.id) { getElements(win.id) }
+                    els.filter { it.rect.contains(p) && it.rect.width >= 8 && it.rect.height >= 8 }
+                        .minByOrNull { it.rect.width * it.rect.height }
+                        ?.let { Hover(it.rect, it.label, true, win.id) }
+                }
+            }
         }
     }
 
@@ -132,10 +154,14 @@ class CaptureSession(
     }
 
     fun tapAt(p: Offset): Boolean {
-        // A click without a drag: grab the hovered window/screen.
+        // A click without a drag grabs whatever is highlighted: a window, an element, or the screen.
         when (source) {
             Source.SCREEN -> { captureScreen(); return true }
             Source.WINDOW -> { topWindowAt(p)?.let { captureWindow(it); return true } }
+            Source.AREA, Source.TEXT -> {
+                val h = hover
+                if (h != null && h.isElement) { captureArea(h.rect, CaptureKind.ELEMENT); return true }
+            }
             else -> {}
         }
         return false
@@ -162,8 +188,13 @@ class CaptureSession(
     private fun captureScreen() { frozenBmp?.let { onResult(it, CaptureKind.SCREEN, "Screen") } ; finish() }
 
     private fun captureWindow(w: WinInfo) {
-        cropFrozen(w.rect)?.let { onResult(it, CaptureKind.WINDOW, "Window · ${w.label}") }
-        finish()
+        // Prefer a clean capture of the window's own surface (no overlaps, no caption); fall back to
+        // cropping the frozen frame if that fails.
+        captureWindowBmp(w.id) { bmp ->
+            val out = bmp ?: cropFrozen(w.rect)
+            if (out != null) onResult(out, CaptureKind.WINDOW, "Window · ${w.label}")
+            finish()
+        }
     }
 
     fun captureArea(rect: Rect, kind: CaptureKind) {
