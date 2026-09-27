@@ -44,9 +44,9 @@ case "${1:-}" in
   debug)   shift; dbg "$@" ;;                                  # e.g. ./ss debug open window
   open)    shift; dbg "open ${1:-}" ;;
   close)   dbg close ;;
-  shot)    # capture StudioSnap's own overlay only, pull to OUT (default /tmp), open path
+  shot)    # capture StudioSnap's own overlay only (dry = no frozen screen), pull to OUT, print path
     tag="${2:-overlay}"; out="${3:-/tmp/ss-$tag.png}"
-    dbg "open ${4:-}"; sleep 0.6; dbg "shot $tag"; sleep 0.6
+    dbg "opendry ${4:-}"; sleep 0.7; dbg "shot $tag"; sleep 0.6
     A exec-out "run-as $PKG cat cache/shots/$tag.png" > "$out"; dbg close
     echo "$out ($(stat -c%s "$out") bytes)" ;;
   key)     # press the Screenshot key via a virtual keyboard (real hotkey path)

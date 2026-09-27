@@ -20,11 +20,17 @@ class DebugReceiver : BroadcastReceiver() {
         when (args.getOrNull(0)) {
             "ping" -> {}
             "open" -> svc?.openBar(sourceOf(args.getOrNull(1)))
+            "opendry" -> svc?.openBar(sourceOf(args.getOrNull(1)), dry = true)
             "close" -> svc?.closeBar()
             "shot" -> svc?.captureOverlayShot(args.getOrNull(1) ?: "overlay")
+            "opentest" -> svc?.openBarTest()
+            "sel" -> svc?.debugSelect(i(args, 1), i(args, 2), i(args, 3), i(args, 4))
+            "grab" -> svc?.debugGrab(i(args, 1), i(args, 2), i(args, 3), i(args, 4))
             else -> Log.w(SnapService.TAG, "unknown debug command")
         }
     }
+
+    private fun i(a: List<String>, n: Int): Int = a.getOrNull(n)?.toIntOrNull() ?: 0
 
     private fun sourceOf(s: String?): Source? = when (s) {
         "area" -> Source.AREA; "window" -> Source.WINDOW; "screen" -> Source.SCREEN
