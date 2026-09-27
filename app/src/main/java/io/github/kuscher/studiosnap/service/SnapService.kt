@@ -29,6 +29,7 @@ import io.github.kuscher.studiosnap.ui.CaptureMode
 import io.github.kuscher.studiosnap.ui.CaptureRoot
 import io.github.kuscher.studiosnap.ui.CardData
 import io.github.kuscher.studiosnap.ui.CardStack
+import io.github.kuscher.studiosnap.ui.RecordRoot
 import io.github.kuscher.studiosnap.ui.TextRoot
 import io.github.kuscher.studiosnap.ui.Source
 import java.util.concurrent.Executors
@@ -45,6 +46,7 @@ class SnapService : AccessibilityService() {
     private var captureOverlay: ComposeOverlay? = null
     private var cardsOverlay: ComposeOverlay? = null
     private var textOverlay: ComposeOverlay? = null
+    private var recordOverlay: ComposeOverlay? = null
     private var session: CaptureSession? = null
     private val cards = mutableStateListOf<CardData>()
     private var cardId = 0L
@@ -64,6 +66,7 @@ class SnapService : AccessibilityService() {
         captureOverlay?.destroy(); captureOverlay = null
         cardsOverlay?.destroy(); cardsOverlay = null
         textOverlay?.destroy(); textOverlay = null
+        recordOverlay?.destroy(); recordOverlay = null
         instance = null
         return super.onUnbind(intent)
     }
@@ -179,7 +182,7 @@ class SnapService : AccessibilityService() {
         if (barShown()) return
         val t0 = SystemClock.elapsedRealtime()
         val present = { bmp: Bitmap? ->
-            val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::dismissCapture)
+            val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::startRecordFlow, ::dismissCapture)
             session = s
             s.onFrozen(bmp, initialSource)
             val ov = captureOverlay ?: ComposeOverlay(this).also { captureOverlay = it }
@@ -254,7 +257,7 @@ class SnapService : AccessibilityService() {
 
     fun openBarTest() {
         if (barShown()) return
-        val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::dismissCapture)
+        val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::startRecordFlow, ::dismissCapture)
         session = s
         s.onFrozen(testBitmap(), Source.AREA)
         val ov = captureOverlay ?: ComposeOverlay(this).also { captureOverlay = it }
@@ -292,6 +295,31 @@ class SnapService : AccessibilityService() {
 
     fun debugText(a: Int, b: Int, w: Int, h: Int) {
         onText(Rect(a.toFloat(), b.toFloat(), (a + w).toFloat(), (b + h).toFloat()))
+    }
+
+    fun debugRecord() { startRecordFlow() }
+    fun debugRecStop() { io.github.kuscher.studiosnap.record.RecordingBus.controller?.stop() }
+    fun debugRecFrame(tag: String) {
+        val proj = arrayOf(android.provider.MediaStore.Video.Media._ID)
+        contentResolver.query(
+            android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI, proj,
+            "${android.provider.MediaStore.Video.Media.RELATIVE_PATH} LIKE ?", arrayOf("%StudioSnap%"),
+            "${android.provider.MediaStore.Video.Media.DATE_ADDED} DESC",
+        )?.use { cur ->
+            if (!cur.moveToFirst()) { Log.w(TAG, "recframe: no video"); return }
+            val id = cur.getLong(0)
+            val uri = android.content.ContentUris.withAppendedId(android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
+            val r = android.media.MediaMetadataRetriever()
+            r.setDataSource(this, uri)
+            val dur = r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+            val f = r.getFrameAtTime(1_000_000)
+            r.release()
+            if (f == null) { Log.w(TAG, "recframe: null frame"); return }
+            val dir = java.io.File(cacheDir, "shots").apply { mkdirs() }
+            val out = java.io.File(dir, "$tag.png")
+            java.io.FileOutputStream(out).use { f.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            Log.i(TAG, "recframe ${f.width}x${f.height} dur=${dur}ms -> ${out.absolutePath}")
+        }
     }
 
     fun debugAim(x: Int, y: Int) {
@@ -406,6 +434,31 @@ class SnapService : AccessibilityService() {
             ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
         )
         textOverlay?.dismiss()
+    }
+
+    // ---- recording ----
+
+    private fun startRecordFlow() {
+        dismissCapture()
+        startActivity(
+            android.content.Intent(this, io.github.kuscher.studiosnap.RecordActivity::class.java)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
+
+    fun onRecordingStarted() {
+        val ov = recordOverlay ?: ComposeOverlay(this).also { recordOverlay = it }
+        ov.show { RecordRoot(dark = isNight()) }
+    }
+
+    fun onRecordingSaved(ok: Boolean, durationMs: Long, thumb: Bitmap?) {
+        recordOverlay?.dismiss()
+        if (!ok) return
+        val img = (thumb ?: Bitmap.createBitmap(600, 380, Bitmap.Config.ARGB_8888).also { it.eraseColor(0xFF2A2D33.toInt()) }).asImageBitmap()
+        val s = durationMs / 1000
+        cards.add(CardData(cardId++, img, "Recording · %d:%02d".format(s / 60, s % 60), copied = false, saved = true, filePath = null))
+        while (cards.size > 3) cards.removeAt(0)
+        ensureCardsOverlay()
     }
 
     companion object {

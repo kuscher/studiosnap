@@ -10,7 +10,7 @@ and how to continue. **Keep it current at every milestone**, and always `git pus
   `studiosnap`, `googlebook-capture-apis`.
 - Build/adb env: `~/.config/vscodebook/android.env`. Helper: `./ss` (see CLAUDE.md).
 
-## Status — Phase 3 text capture COMPLETE; Phases 0, 1a, 1b, 2a done
+## Status — Phase 4 recording (v1) COMPLETE; Phases 0-4 core all working
 Verified on the HP Googlebook 14 (SDK 37.1) on 2026-09-27:
 - Project builds: Gradle 9.8 / AGP 9.4.1 (built-in Kotlin) / JDK 21 / Compose BOM 2026.09.00,
   minSdk 34 target 37, package `io.github.kuscher.studiosnap`.
@@ -56,7 +56,20 @@ Phase 2b/2c: text + crop + select/move tools, Frame/beautify panel, layers panel
   shown in a centred TextRoot popover (Copied / Search-via-share / Close). Verified on our own
   home screen (138 chars, clean). OCR fallback for pixels + scrolling capture still deferred.
 
-## Next — Phase 4 (recording) then polish (1c settings/library/onboarding, 2b/2c editor)
+## Phase 4 recording v1 verified on device (2026-09-27)
+- RecordActivity (consent trampoline) -> RecordService (FGS type mediaProjection):
+  MediaProjection -> VirtualDisplay -> MediaCodec H.264 -> MediaMuxer MP4 -> Movies/StudioSnap.
+- Picker-free via `appops set <pkg> PROJECT_MEDIA allow` (verified instant consent). Recording
+  pill HUD (RecordRoot: red dot, timer, Stop, Discard) via RecordingBus. Result: video card.
+- Verified: 3.4 s / 447 KB / 1920x1200 MP4, frame-extractable (recframe), pill renders.
+- v1 limits (do in 4b): mic + device audio, pause, region/window crop, GIF/WebP export, 3-2-1
+  countdown, EXCLUDE the pill from the recording (currently the pill appears in the video),
+  video result-card actions (trim/GIF/share).
+
+## Next — polish to make it a real installable app
+Phase 1c: DataStore Settings (key takeover, after-capture, bar position), first-run onboarding,
+Library grid (MediaStore), picker-mode fallback + auto-detect. Then 2b/2c editor (text/crop/select,
+Frame/beautify), scrolling capture, recording 4b. Then a signed release APK + README for the user.
 Remaining Phase 1 work:
 1. Capture engine: `takeScreenshot` (full/area-crop) and `takeScreenshotOfWindow`; ~333 ms limit.
 2. Selection layer in the full-screen overlay: freeze frame, dim outside, crosshair + loupe, W×H
