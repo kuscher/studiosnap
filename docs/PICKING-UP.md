@@ -10,7 +10,7 @@ and how to continue. **Keep it current at every milestone**, and always `git pus
   `studiosnap`, `googlebook-capture-apis`.
 - Build/adb env: `~/.config/vscodebook/android.env`. Helper: `./ss` (see CLAUDE.md).
 
-## Status — Phase 1b (snapping + loupe) COMPLETE; Phase 0, 1a done
+## Status — Phase 2a (Studio editor) COMPLETE; Phases 0, 1a, 1b done
 Verified on the HP Googlebook 14 (SDK 37.1) on 2026-09-27:
 - Project builds: Gradle 9.8 / AGP 9.4.1 (built-in Kotlin) / JDK 21 / Compose BOM 2026.09.00,
   minSdk 34 target 37, package `io.github.kuscher.studiosnap`.
@@ -37,11 +37,20 @@ Verified on the HP Googlebook 14 (SDK 37.1) on 2026-09-27:
 - Loupe magnifier (6x) + crosshair + live coord/colour readout (#hex). Verified over the test frame.
 - Real injected drag validated the full gesture path (drag -> AREA capture).
 
-## Next — Phase 1c (deferred) then Phase 2
-Phase 1c still to do (lean): DataStore settings (key takeover, after-capture, bar position),
-first-run onboarding, Library grid (MediaStore), picker-mode fallback, result-card drag-out,
-timer countdown, adjust-handles + arrow-key nudge. Prioritising **Phase 2 (Studio editor)** next
-as the headline post-capture value; folding Settings/Library in as needed.
+## Phase 2a verified on device (2026-09-27)
+- StudioActivity opens a capture (from the card's working file in cache/captures, or an EDIT
+  intent). Tool strip (arrow/line/rect/ellipse/pen/highlighter/step/redact), property bar
+  (palette + width), undo/redo, Copy/Save (flatten via EditorState.export), Close.
+- Annotations in image coords (Ann model), Compose + android renderers; arrow drawn via real
+  pointer input with arrowhead — verified in the Studio window over the test frame.
+- Card "Annotate" opens Studio (SnapService.openStudio). `./ss debug studio` + `shotwin <substr> <tag>`.
+
+## Deferred within Phase 1/2 (do when convenient)
+Phase 1c: DataStore settings, first-run, Library grid, picker-mode fallback, card drag-out,
+timer countdown, adjust-handles + arrow-key nudge.
+Phase 2b/2c: text + crop + select/move tools, Frame/beautify panel, layers panel, auto-redact.
+
+## Next — Phase 3 (text + scrolling) then Phase 4 (recording)
 Remaining Phase 1 work:
 1. Capture engine: `takeScreenshot` (full/area-crop) and `takeScreenshotOfWindow`; ~333 ms limit.
 2. Selection layer in the full-screen overlay: freeze frame, dim outside, crosshair + loupe, W×H

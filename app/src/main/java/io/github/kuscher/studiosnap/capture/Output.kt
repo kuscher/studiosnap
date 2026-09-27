@@ -23,6 +23,14 @@ object Output {
     fun defaultName(now: Date = Date()): String =
         "Snap " + SimpleDateFormat("yyyy-MM-dd 'at' HH.mm.ss", Locale.US).format(now)
 
+    /** Writes a working PNG into cache/captures for the editor to reopen. Returns the file. */
+    fun saveWorkingFile(ctx: Context, bmp: Bitmap, name: String): File {
+        val dir = File(ctx.cacheDir, "captures").apply { mkdirs() }
+        val f = File(dir, "$name.png")
+        FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        return f
+    }
+
     /** Puts a PNG of [bmp] on the clipboard as an image content URI other apps can paste. */
     fun copyToClipboard(ctx: Context, bmp: Bitmap, name: String) {
         try {

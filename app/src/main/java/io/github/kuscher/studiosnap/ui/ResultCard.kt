@@ -33,6 +33,7 @@ class CardData(
     val label: String,
     val copied: Boolean,
     val saved: Boolean,
+    val filePath: String? = null,
 )
 
 /** The bottom-left stack of result cards. Newest on top; each fades out after a few seconds. */
