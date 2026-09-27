@@ -47,6 +47,14 @@ object Output {
         }
     }
 
+    /** Puts plain text on the clipboard. */
+    fun copyText(ctx: Context, text: String) {
+        try {
+            val cm = ctx.getSystemService(ClipboardManager::class.java)
+            cm.setPrimaryClip(ClipData.newPlainText("StudioSnap text", text))
+        } catch (e: Exception) { Log.w(SnapService.TAG, "copyText failed: $e") }
+    }
+
     /** Saves a PNG into Pictures/StudioSnap via MediaStore. Returns the new item's Uri. */
     fun saveToGallery(ctx: Context, bmp: Bitmap, name: String): Uri? {
         return try {

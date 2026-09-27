@@ -17,6 +17,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.asImageBitmap
 import io.github.kuscher.studiosnap.capture.CaptureKind
@@ -28,6 +29,7 @@ import io.github.kuscher.studiosnap.ui.CaptureMode
 import io.github.kuscher.studiosnap.ui.CaptureRoot
 import io.github.kuscher.studiosnap.ui.CardData
 import io.github.kuscher.studiosnap.ui.CardStack
+import io.github.kuscher.studiosnap.ui.TextRoot
 import io.github.kuscher.studiosnap.ui.Source
 import java.util.concurrent.Executors
 
@@ -42,6 +44,7 @@ class SnapService : AccessibilityService() {
     private val bg = Executors.newSingleThreadExecutor()
     private var captureOverlay: ComposeOverlay? = null
     private var cardsOverlay: ComposeOverlay? = null
+    private var textOverlay: ComposeOverlay? = null
     private var session: CaptureSession? = null
     private val cards = mutableStateListOf<CardData>()
     private var cardId = 0L
@@ -60,6 +63,7 @@ class SnapService : AccessibilityService() {
         closeBar()
         captureOverlay?.destroy(); captureOverlay = null
         cardsOverlay?.destroy(); cardsOverlay = null
+        textOverlay?.destroy(); textOverlay = null
         instance = null
         return super.onUnbind(intent)
     }
@@ -175,7 +179,7 @@ class SnapService : AccessibilityService() {
         if (barShown()) return
         val t0 = SystemClock.elapsedRealtime()
         val present = { bmp: Bitmap? ->
-            val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::dismissCapture)
+            val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::dismissCapture)
             session = s
             s.onFrozen(bmp, initialSource)
             val ov = captureOverlay ?: ComposeOverlay(this).also { captureOverlay = it }
@@ -250,7 +254,7 @@ class SnapService : AccessibilityService() {
 
     fun openBarTest() {
         if (barShown()) return
-        val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::dismissCapture)
+        val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::dismissCapture)
         session = s
         s.onFrozen(testBitmap(), Source.AREA)
         val ov = captureOverlay ?: ComposeOverlay(this).also { captureOverlay = it }
@@ -284,6 +288,10 @@ class SnapService : AccessibilityService() {
             java.io.FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
             Log.i(TAG, "shotwin '${win.label}' ${bmp.width}x${bmp.height} -> ${f.absolutePath}")
         }
+    }
+
+    fun debugText(a: Int, b: Int, w: Int, h: Int) {
+        onText(Rect(a.toFloat(), b.toFloat(), (a + w).toFloat(), (b + h).toFloat()))
     }
 
     fun debugAim(x: Int, y: Int) {
@@ -335,6 +343,69 @@ class SnapService : AccessibilityService() {
             }
             override fun onFailure(code: Int) { Log.w(TAG, "shot FAIL code=$code") }
         })
+    }
+
+    // ---- text capture (exact text from accessibility nodes) ----
+
+    private fun onText(rect: Rect) {
+        bg.execute {
+            val text = extractText(rect)
+            Output.copyText(this, text)
+            main.post { showText(text) }
+            Log.i(TAG, "text ${text.length} chars -> clipboard")
+        }
+    }
+
+    private fun extractText(rect: Rect): String {
+        // Only the topmost app window overlapping the selection, so occluded windows underneath
+        // don't leak their text into the result.
+        val all = windowsOnAllDisplays
+        var target: AccessibilityWindowInfo? = null
+        val wr = android.graphics.Rect()
+        for (i in 0 until all.size()) for (w in all.valueAt(i)) {
+            if (w.type != AccessibilityWindowInfo.TYPE_APPLICATION) continue
+            w.getBoundsInScreen(wr)
+            val overlaps = wr.right > rect.left && rect.right > wr.left && wr.bottom > rect.top && rect.bottom > wr.top
+            if (overlaps && (target == null || w.layer > target!!.layer)) target = w
+        }
+        val root = target?.root ?: return ""
+        val hits = ArrayList<Triple<Int, Int, String>>()
+        val r = android.graphics.Rect()
+        val q = ArrayDeque<AccessibilityNodeInfo>()
+        q.add(root); var n = 0
+        while (q.isNotEmpty() && n < 8000) {
+            val node = q.removeFirst(); n++
+            val t = node.text
+            if (!t.isNullOrBlank() && node.isVisibleToUser) {
+                node.getBoundsInScreen(r)
+                if (rect.contains(Offset(r.exactCenterX(), r.exactCenterY()))) hits.add(Triple(r.top, r.left, t.toString()))
+            }
+            for (c in 0 until node.childCount) node.getChild(c)?.let { q.add(it) }
+        }
+        hits.sortWith(compareBy({ it.first / 24 }, { it.second }))
+        return hits.joinToString("\n") { it.third }
+    }
+
+    private fun showText(text: String) {
+        val ov = textOverlay ?: ComposeOverlay(this).also { textOverlay = it }
+        ov.show {
+            TextRoot(text, dark = isNight(),
+                onCopy = { Output.copyText(this, text) },
+                onSearch = { webSearch(text) },
+                onClose = { textOverlay?.dismiss() })
+        }
+    }
+
+    private fun webSearch(text: String) {
+        if (text.isBlank()) return
+        startActivity(
+            android.content.Intent.createChooser(
+                android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+                    .putExtra(android.content.Intent.EXTRA_TEXT, text),
+                "Search or share text",
+            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+        textOverlay?.dismiss()
     }
 
     companion object {

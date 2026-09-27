@@ -10,7 +10,7 @@ and how to continue. **Keep it current at every milestone**, and always `git pus
   `studiosnap`, `googlebook-capture-apis`.
 - Build/adb env: `~/.config/vscodebook/android.env`. Helper: `./ss` (see CLAUDE.md).
 
-## Status — Phase 2a (Studio editor) COMPLETE; Phases 0, 1a, 1b done
+## Status — Phase 3 text capture COMPLETE; Phases 0, 1a, 1b, 2a done
 Verified on the HP Googlebook 14 (SDK 37.1) on 2026-09-27:
 - Project builds: Gradle 9.8 / AGP 9.4.1 (built-in Kotlin) / JDK 21 / Compose BOM 2026.09.00,
   minSdk 34 target 37, package `io.github.kuscher.studiosnap`.
@@ -50,7 +50,13 @@ Phase 1c: DataStore settings, first-run, Library grid, picker-mode fallback, car
 timer countdown, adjust-handles + arrow-key nudge.
 Phase 2b/2c: text + crop + select/move tools, Frame/beautify panel, layers panel, auto-redact.
 
-## Next — Phase 3 (text + scrolling) then Phase 4 (recording)
+## Phase 3 text capture verified on device (2026-09-27)
+- Text source extracts EXACT text from accessibility nodes in the region (topmost overlapping
+  window only, occlusion-aware), sorted top-to-bottom/left-to-right, auto-copied to clipboard,
+  shown in a centred TextRoot popover (Copied / Search-via-share / Close). Verified on our own
+  home screen (138 chars, clean). OCR fallback for pixels + scrolling capture still deferred.
+
+## Next — Phase 4 (recording) then polish (1c settings/library/onboarding, 2b/2c editor)
 Remaining Phase 1 work:
 1. Capture engine: `takeScreenshot` (full/area-crop) and `takeScreenshotOfWindow`; ~333 ms limit.
 2. Selection layer in the full-screen overlay: freeze frame, dim outside, crosshair + loupe, W×H
