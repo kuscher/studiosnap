@@ -70,6 +70,11 @@
         </receiver>
 
         <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:label="StudioSnap Settings" />
+
+        <activity
             android:name=".StudioActivity"
             android:exported="true"
             android:label="StudioSnap Studio"

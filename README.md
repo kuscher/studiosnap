@@ -33,5 +33,17 @@ continue (especially important if the dev VM restarts).
 
 ## Install (users)
 
-Download the APK from GitHub Releases, open it from Files to install, then turn on **StudioSnap**
-in **Settings → Accessibility**. (Play Store distribution is planned.)
+1. Download **StudioSnap-0.1.apk** from the [Releases](https://github.com/kuscher/studiosnap/releases) page.
+2. Open it from **Files** to install (allow installing from Files if asked).
+3. Open StudioSnap and tap **Turn on instant capture** → enable **StudioSnap** in Accessibility.
+   (If installed from Chrome, first allow *Restricted settings* for StudioSnap in App info.)
+4. Press the **Screenshot key** (or **Action+Shift+S**) anywhere.
+
+Drag an area, or click a window or UI element; the shot is copied and saved to
+**Pictures/StudioSnap**, and a card lets you annotate, pin or share it. Switch the bar to **Text**
+to copy on-screen text, or **Record** to capture MP4 (saved to Movies/StudioSnap).
+
+What works in 0.1: area/window/screen/element capture with freeze + loupe, clipboard + save,
+result cards, the annotation editor (arrows, shapes, pen, highlighter, steps, redaction), exact
+text capture, and full-screen screen recording. In progress: scrolling capture, beautify frames,
+recording audio/region/GIF, and settings polish.

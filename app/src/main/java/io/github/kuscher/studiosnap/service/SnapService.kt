@@ -32,6 +32,7 @@ import io.github.kuscher.studiosnap.ui.CardStack
 import io.github.kuscher.studiosnap.ui.RecordRoot
 import io.github.kuscher.studiosnap.ui.TextRoot
 import io.github.kuscher.studiosnap.ui.Source
+import io.github.kuscher.studiosnap.util.Settings
 import java.util.concurrent.Executors
 
 /**
@@ -51,7 +52,7 @@ class SnapService : AccessibilityService() {
     private val cards = mutableStateListOf<CardData>()
     private var cardId = 0L
 
-    private var keyTakeover = true
+    private val settings by lazy { Settings(this) }
 
     override fun onServiceConnected() {
         instance = this
@@ -90,7 +91,7 @@ class SnapService : AccessibilityService() {
             }
             return true
         }
-        if (!keyTakeover) return false
+        if (!settings.keyTakeover) return false
         val screenshotKey = code == KeyEvent.KEYCODE_SYSRQ || code == KeyEvent.KEYCODE_SCREENSHOT
         val metaShiftS = code == KeyEvent.KEYCODE_S && event.isMetaPressed && event.isShiftPressed
         if (screenshotKey || metaShiftS) {
@@ -186,7 +187,7 @@ class SnapService : AccessibilityService() {
             session = s
             s.onFrozen(bmp, initialSource)
             val ov = captureOverlay ?: ComposeOverlay(this).also { captureOverlay = it }
-            ov.show { CaptureRoot(s, dark = isNight()) }
+            ov.show { CaptureRoot(s, dark = isNight(), barAtTop = settings.barAtTop) }
             Log.i(TAG, "bar shown in ${SystemClock.elapsedRealtime() - t0}ms frozen=${bmp != null} source=$initialSource")
         }
         if (dry) present(null) else captureFullScreen(1) { bmp -> present(bmp) }
@@ -196,13 +197,16 @@ class SnapService : AccessibilityService() {
         val name = Output.defaultName()
         val img = bmp.asImageBitmap()
         val working = Output.saveWorkingFile(this, bmp, name)
-        cards.add(CardData(cardId++, img, "$label · ${bmp.width} × ${bmp.height}", copied = true, saved = true, filePath = working.absolutePath))
-        while (cards.size > 3) cards.removeAt(0)
-        ensureCardsOverlay()
+        val copy = settings.copyAfter; val save = settings.saveAfter
+        if (settings.showCard) {
+            cards.add(CardData(cardId++, img, "$label · ${bmp.width} × ${bmp.height}", copied = copy, saved = save, filePath = working.absolutePath))
+            while (cards.size > 3) cards.removeAt(0)
+            ensureCardsOverlay()
+        }
         bg.execute {
-            Output.copyToClipboard(this, bmp, name)
-            Output.saveToGallery(this, bmp, name)
-            Log.i(TAG, "result $kind ${bmp.width}x${bmp.height} -> clipboard + Pictures/StudioSnap")
+            if (copy) Output.copyToClipboard(this, bmp, name)
+            if (save) Output.saveToGallery(this, bmp, name)
+            Log.i(TAG, "result $kind ${bmp.width}x${bmp.height} copy=$copy save=$save")
         }
     }
 
@@ -261,7 +265,7 @@ class SnapService : AccessibilityService() {
         session = s
         s.onFrozen(testBitmap(), Source.AREA)
         val ov = captureOverlay ?: ComposeOverlay(this).also { captureOverlay = it }
-        ov.show { CaptureRoot(s, dark = isNight()) }
+        ov.show { CaptureRoot(s, dark = isNight(), barAtTop = settings.barAtTop) }
         Log.i(TAG, "test bar shown")
     }
 
