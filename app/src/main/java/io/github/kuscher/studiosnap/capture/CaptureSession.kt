@@ -41,6 +41,7 @@ class CaptureSession(
     private val captureWindowBmp: (Int, (Bitmap?) -> Unit) -> Unit = { _, cb -> cb(null) },
     private val onResult: (Bitmap, CaptureKind, String) -> Unit,
     private val onText: (Rect) -> Unit = {},
+    private val onRecord: () -> Unit = {},
     private val onDismiss: () -> Unit,
 ) {
     private val elementCache = HashMap<Int, List<ElementInfo>>()
@@ -169,6 +170,7 @@ class CaptureSession(
     }
 
     fun primary() {
+        if (mode == CaptureMode.REC) { onRecord(); finish(); return }
         when (source) {
             Source.SCREEN -> captureScreen()
             Source.WINDOW -> hover?.winId?.let { id -> windows.find { it.id == id }?.let { captureWindow(it) } }
@@ -178,9 +180,10 @@ class CaptureSession(
     }
 
     val primaryEnabled: Boolean
-        get() = when (source) {
-            Source.SCREEN -> true
-            Source.WINDOW, Source.SCROLL -> hover?.winId != null
+        get() = when {
+            mode == CaptureMode.REC -> true
+            source == Source.SCREEN -> true
+            source == Source.WINDOW || source == Source.SCROLL -> hover?.winId != null
             else -> phase == SelPhase.ADJUST && selection != null
         }
 
