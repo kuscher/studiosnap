@@ -27,6 +27,8 @@ class DebugReceiver : BroadcastReceiver() {
             "sel" -> svc?.debugSelect(i(args, 1), i(args, 2), i(args, 3), i(args, 4))
             "grab" -> svc?.debugGrab(i(args, 1), i(args, 2), i(args, 3), i(args, 4))
             "aim" -> svc?.debugAim(i(args, 1), i(args, 2))
+            "studio" -> svc?.debugStudio()
+            "shotwin" -> svc?.debugShotWindow(args.getOrNull(1) ?: "studiosnap", args.getOrNull(2) ?: "win")
             else -> Log.w(SnapService.TAG, "unknown debug command")
         }
     }

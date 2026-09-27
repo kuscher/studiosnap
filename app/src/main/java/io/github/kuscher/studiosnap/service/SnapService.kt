@@ -188,7 +188,8 @@ class SnapService : AccessibilityService() {
     private fun onResult(bmp: Bitmap, kind: CaptureKind, label: String) {
         val name = Output.defaultName()
         val img = bmp.asImageBitmap()
-        cards.add(CardData(cardId++, img, "$label · ${bmp.width} × ${bmp.height}", copied = true, saved = true))
+        val working = Output.saveWorkingFile(this, bmp, name)
+        cards.add(CardData(cardId++, img, "$label · ${bmp.width} × ${bmp.height}", copied = true, saved = true, filePath = working.absolutePath))
         while (cards.size > 3) cards.removeAt(0)
         ensureCardsOverlay()
         bg.execute {
@@ -196,6 +197,16 @@ class SnapService : AccessibilityService() {
             Output.saveToGallery(this, bmp, name)
             Log.i(TAG, "result $kind ${bmp.width}x${bmp.height} -> clipboard + Pictures/StudioSnap")
         }
+    }
+
+    private fun openStudio(card: CardData) {
+        val path = card.filePath ?: return
+        startActivity(
+            android.content.Intent(this, io.github.kuscher.studiosnap.StudioActivity::class.java)
+                .putExtra(io.github.kuscher.studiosnap.StudioActivity.EXTRA_PATH, path)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+        removeCard(card.id)
     }
 
     private fun ensureCardsOverlay() {
@@ -212,7 +223,7 @@ class SnapService : AccessibilityService() {
                 dark = isNight(),
                 onDismiss = { id -> removeCard(id) },
                 onCopy = { /* re-copy handled below */ recopy(it) },
-                onEdit = { /* Studio arrives in Phase 2 */ },
+                onEdit = { openStudio(it) },
             )
         }
     }
@@ -253,6 +264,26 @@ class SnapService : AccessibilityService() {
 
     fun debugGrab(a: Int, b: Int, w: Int, h: Int) {
         session?.captureArea(Rect(a.toFloat(), b.toFloat(), (a + w).toFloat(), (b + h).toFloat()), CaptureKind.AREA)
+    }
+
+    fun debugStudio() {
+        val f = java.io.File(cacheDir, "captures").listFiles()?.maxByOrNull { it.lastModified() } ?: return
+        startActivity(
+            android.content.Intent(this, io.github.kuscher.studiosnap.StudioActivity::class.java)
+                .putExtra(io.github.kuscher.studiosnap.StudioActivity.EXTRA_PATH, f.absolutePath)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
+
+    fun debugShotWindow(substr: String, tag: String) {
+        val win = listWindows().firstOrNull { it.label.contains(substr, true) } ?: run { Log.w(TAG, "no window '$substr'"); return }
+        captureWindow(win.id) { bmp ->
+            if (bmp == null) { Log.w(TAG, "shotwin null"); return@captureWindow }
+            val dir = java.io.File(cacheDir, "shots").apply { mkdirs() }
+            val f = java.io.File(dir, "$tag.png")
+            java.io.FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            Log.i(TAG, "shotwin '${win.label}' ${bmp.width}x${bmp.height} -> ${f.absolutePath}")
+        }
     }
 
     fun debugAim(x: Int, y: Int) {
