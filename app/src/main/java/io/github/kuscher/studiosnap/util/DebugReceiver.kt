@@ -1,0 +1,33 @@
+package io.github.kuscher.studiosnap.util
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.util.Log
+import io.github.kuscher.studiosnap.service.SnapService
+import io.github.kuscher.studiosnap.ui.Source
+
+/**
+ * adb-only test hooks. Guarded by android.permission.DUMP in the manifest, so only the shell can
+ * send these. Usage:
+ *   adb shell am broadcast --user 10 -n <pkg>/.util.DebugReceiver -a io.github.kuscher.studiosnap.DEBUG --es c "open area"
+ */
+class DebugReceiver : BroadcastReceiver() {
+    override fun onReceive(ctx: Context, intent: Intent) {
+        val args = (intent.getStringExtra("c") ?: "").trim().split(" ")
+        val svc = SnapService.instance
+        Log.i(SnapService.TAG, "DEBUG ${args.joinToString(" ")} service=${svc != null}")
+        when (args.getOrNull(0)) {
+            "ping" -> {}
+            "open" -> svc?.openBar(sourceOf(args.getOrNull(1)))
+            "close" -> svc?.closeBar()
+            "shot" -> svc?.captureOverlayShot(args.getOrNull(1) ?: "overlay")
+            else -> Log.w(SnapService.TAG, "unknown debug command")
+        }
+    }
+
+    private fun sourceOf(s: String?): Source? = when (s) {
+        "area" -> Source.AREA; "window" -> Source.WINDOW; "screen" -> Source.SCREEN
+        "scroll" -> Source.SCROLL; "text" -> Source.TEXT; else -> null
+    }
+}

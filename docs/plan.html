@@ -1,0 +1,798 @@
+<title>StudioSnap</title>
+<meta name="description" content="Build plan and UI design for StudioSnap, a capture studio for Googlebook OS, waiting for a go-ahead.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Code:wght@400;500&family=Google+Sans+Flex:opsz,wght@6..144,300..800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block">
+<style>
+:root{
+  --bg:#F3F4F6; --surface:#FFFFFF; --soft:#EBEDF1; --ink:#14161A; --muted:#58606D; --rule:#D9DCE2;
+  --coral:#D2461F; --coral-ink:#B23A18; --coral-soft:#FCE5DD; --blue:#2A62D6; --blue-soft:#E3EBFB;
+  --green:#1D774A; --green-soft:#DDF1E6; --amber:#8A5B00; --amber-soft:#F8EDD2;
+  --sans:"Google Sans Flex","Google Sans","Roboto Flex",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"Google Sans Code",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --measure:68ch;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0E1013; --surface:#16191E; --soft:#1D2127; --ink:#E7E9EC; --muted:#9BA3AE; --rule:#2A2E35;
+    --coral:#FF7A57; --coral-ink:#FF9A7E; --coral-soft:#3A1B12; --blue:#8AB0FF; --blue-soft:#18233A;
+    --green:#5BC98F; --green-soft:#112A1D; --amber:#E6B657; --amber-soft:#2D2412;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0E1013; --surface:#16191E; --soft:#1D2127; --ink:#E7E9EC; --muted:#9BA3AE; --rule:#2A2E35;
+  --coral:#FF7A57; --coral-ink:#FF9A7E; --coral-soft:#3A1B12; --blue:#8AB0FF; --blue-soft:#18233A;
+  --green:#5BC98F; --green-soft:#112A1D; --amber:#E6B657; --amber-soft:#2D2412;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;padding-inline:20px;padding-block:0 72px;font-optical-sizing:auto}
+.wrap{max-width:1180px;margin:0 auto}
+.prose{max-width:var(--measure)}
+a{color:var(--blue);text-underline-offset:2px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:4px}
+h1,h2,h3,h4{margin:0;text-wrap:balance;line-height:1.15}
+h2{font-size:clamp(1.6rem,1.2rem + 1.3vw,2.25rem);font-weight:650;letter-spacing:-.015em}
+h3{font-size:1.14rem;font-weight:620}
+h4{font-size:.98rem;font-weight:620}
+p{margin:0}
+code,kbd,.mono{font-family:var(--mono);font-size:.88em}
+code{background:var(--soft);padding:.06em .36em;border-radius:5px;overflow-wrap:anywhere}
+kbd{display:inline-block;min-width:1.5em;text-align:center;padding:.05em .45em;border:1px solid var(--rule);border-bottom-width:2px;border-radius:6px;background:var(--surface);font-size:.8em;line-height:1.5;white-space:nowrap}
+.eyebrow{font-family:var(--mono);font-size:.76rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ms{font-family:"Material Symbols Rounded";font-weight:normal;font-style:normal;font-size:22px;line-height:1;letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;direction:ltr;-webkit-font-smoothing:antialiased;font-feature-settings:"liga";user-select:none}
+section{padding-block:44px 6px;display:grid;gap:18px}
+.head{display:grid;gap:8px}
+.head p{color:var(--muted);max-width:var(--measure)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.card-p{background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:18px;display:grid;gap:10px;align-content:start}
+ul.clean{margin:0;padding-left:1.1em;display:grid;gap:5px}
+ul.clean li::marker{color:var(--muted)}
+.note{border-left:3px solid var(--coral);padding:10px 14px;background:var(--surface);border-radius:0 10px 10px 0;max-width:var(--measure)}
+</style>
+
+<style>
+/* ---------- StudioSnap HUD look ---------- */
+.ss{--gsf:"Google Sans Flex","Google Sans","Roboto Flex",system-ui,sans-serif;--gsc:"Google Sans Code",ui-monospace,Menlo,monospace;
+  --hud-bg:rgba(250,250,252,.86); --hud-solid:#FAFAFC; --hud-ink:#1B1D22; --hud-muted:#5E6570; --hud-line:rgba(20,24,32,.12);
+  --hud-hover:rgba(20,24,32,.07); --hud-track:rgba(20,24,32,.06); --hud-sel-bg:#FFDDD3; --hud-sel-ink:#8A2710;
+  --hud-primary:#C23B1A; --hud-on-primary:#FFFFFF; --hud-rec:#D32F2F; --hud-on-rec:#FFFFFF;
+  --hud-shadow:0 14px 34px rgba(10,14,20,.24),0 2px 6px rgba(10,14,20,.12);--pill-bg:rgba(16,18,22,.9);--pill-ink:#fff;--accent:#E4502B;
+  font-family:var(--gsf)}
+.ss[data-hud="dark"]{--hud-bg:rgba(30,32,37,.84); --hud-solid:#1E2025; --hud-ink:#EEF0F3; --hud-muted:#A3AAB5; --hud-line:rgba(255,255,255,.13);
+  --hud-hover:rgba(255,255,255,.08); --hud-track:rgba(255,255,255,.07); --hud-sel-bg:#5C2618; --hud-sel-ink:#FFC3B3;
+  --hud-primary:#FF9275; --hud-on-primary:#2B0E06; --hud-rec:#FF6B6B; --hud-on-rec:#2A0808; --hud-shadow:0 14px 34px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.3)}
+.ss[data-style="vibrant"]{--hud-bg:rgba(255,222,212,.94); --hud-ink:#3A1206; --hud-muted:#7A3B2A; --hud-line:rgba(120,40,20,.18); --hud-hover:rgba(120,40,20,.08); --hud-track:rgba(120,40,20,.09); --hud-sel-bg:#C23B1A; --hud-sel-ink:#fff}
+.ss .b{position:relative;height:44px;min-width:44px;border:0;background:transparent;color:inherit;border-radius:22px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 12px;font:500 14px/1 var(--gsf);cursor:pointer;white-space:nowrap}
+.ss .b:hover{background:var(--hud-hover)}
+.ss .b.on{background:var(--hud-sel-bg);color:var(--hud-sel-ink)}
+.ss .b.on .ms{font-variation-settings:"FILL" 1,"wght" 500}
+.ss .b:disabled{opacity:.4}
+.ss .b .ms{font-size:22px}
+.ss .bar{display:inline-flex;align-items:center;gap:2px;height:64px;padding:0 10px;border-radius:32px;background:var(--hud-bg);color:var(--hud-ink);border:1px solid var(--hud-line);box-shadow:var(--hud-shadow);-webkit-backdrop-filter:blur(24px) saturate(1.5);backdrop-filter:blur(24px) saturate(1.5)}
+.ss .bar .grip{min-width:26px;padding:0;color:var(--hud-muted);cursor:grab}
+.ss .seg{display:flex;gap:2px;background:var(--hud-track);border-radius:24px;padding:2px}
+.ss .seg .b{height:40px}
+.ss .div{width:1px;height:28px;background:var(--hud-line);margin:0 6px;flex:none}
+.ss .b.primary{height:48px;border-radius:24px;padding:0 18px 0 14px;background:var(--hud-primary);color:var(--hud-on-primary);margin-left:6px;font-weight:600}
+.ss .b.primary.rec{background:var(--hud-rec);color:var(--hud-on-rec)}
+.ss .b .badge{position:absolute;top:2px;right:0;font:600 10px/1 var(--gsc);background:var(--hud-primary);color:var(--hud-on-primary);border-radius:7px;padding:2px 4px}
+.ss .b .cd{font:700 20px/1 var(--gsc);min-width:20px}
+.ss .b[data-tip]{position:relative}
+.ss .b[data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);background:var(--pill-bg);color:var(--pill-ink);font:500 12px/1 var(--gsf);padding:7px 9px;border-radius:8px;white-space:nowrap;pointer-events:none;z-index:6}
+.ss .hudpill{display:inline-flex;align-items:center;gap:2px;height:52px;padding:0 8px 0 6px;border-radius:26px;background:var(--hud-bg);color:var(--hud-ink);border:1px solid var(--hud-line);box-shadow:var(--hud-shadow);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);white-space:nowrap}
+.ss .hudpill .b{height:40px}
+.ss .hudpill .dot{width:11px;height:11px;border-radius:50%;background:var(--hud-rec);margin:0 6px 0 8px}
+.ss .hudpill .tm{font:500 15px/1 var(--gsc);min-width:48px;font-variant-numeric:tabular-nums}
+.ss .hudpill .stop{background:var(--hud-rec);color:var(--hud-on-rec);padding:0 14px 0 10px;font-weight:600}
+.ss .hudpill .info{font-size:14px;padding:0 8px}
+.ss .hudpill .info b{font-family:var(--gsc);font-weight:500}
+/* specimen stage */
+.specs{display:grid;gap:14px}
+.spec-row{overflow-x:auto}
+.spec{position:relative;min-width:760px;height:150px;border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:
+  radial-gradient(circle at 18% 24%,#86b4ff 0,transparent 42%),radial-gradient(circle at 82% 26%,#ffb49c 0,transparent 40%),
+  radial-gradient(circle at 60% 90%,#98e0c4 0,transparent 44%),linear-gradient(135deg,#dde6f7,#f6e9f1)}
+.spec.d{background:radial-gradient(circle at 20% 30%,#3a4a7a 0,transparent 45%),radial-gradient(circle at 80% 30%,#6a3a4a 0,transparent 42%),linear-gradient(135deg,#1a1e2a,#2a1e24)}
+.spec-cap{display:flex;justify-content:space-between;gap:12px;font-size:.9rem;color:var(--muted);padding:6px 4px 0;flex-wrap:wrap}
+.spec-cap b{color:var(--ink);font-weight:600}
+.callouts{position:absolute;inset:0;pointer-events:none}
+.callouts .co{position:absolute;width:22px;height:22px;border-radius:50%;background:#14161A;color:#fff;font:600 11px/22px var(--mono);text-align:center;transform:translate(-50%,-50%);box-shadow:0 0 0 2px #fff}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px 22px;counter-reset:co;margin:0;padding:0;list-style:none;font-size:.95rem}
+.legend li{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:start}
+.legend li::before{counter-increment:co;content:counter(co);width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--bg);font:600 11px/22px var(--mono);text-align:center;margin-top:2px}
+</style>
+<style>
+/* surfaces */
+.surfaces{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.surf{background:var(--surface);border:1px solid var(--rule);border-radius:16px;overflow:hidden;display:grid;grid-template-rows:auto 1fr}
+.surf .viz{position:relative;height:196px;overflow:hidden;display:grid;place-items:center;background:
+  radial-gradient(circle at 20% 26%,#9cc0ff 0,transparent 44%),radial-gradient(circle at 80% 24%,#ffc3ad 0,transparent 42%),linear-gradient(135deg,#e2e9f7,#f6ecf2)}
+.surf .txt{padding:15px 17px;display:grid;gap:8px;align-content:start}
+.surf .txt p{font-size:.94rem}
+.surf .txt ul{font-size:.9rem}
+.surf .tag{font-family:var(--mono);font-size:.72rem;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+/* small mock pieces used inside viz + surfaces */
+.mini{border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(10,14,20,.22);background:#fff;font-family:var(--gsf)}
+.mini .cap{height:26px;display:flex;align-items:center;gap:6px;padding:0 8px;background:#edf1f7;font-size:11px;color:#31404f}
+.mini .cap .ms{font-size:13px}
+.mini .bd{padding:10px 12px;font-size:11px;color:#3a4453;line-height:1.5}
+.mini h5{margin:0 0 4px;font-size:13px;color:#1a2230}
+.selbox{position:relative;border:1.5px solid #fff;outline:1px solid rgba(0,0,0,.5);box-shadow:0 0 0 400px rgba(10,12,16,.44)}
+.selbox .h{position:absolute;width:9px;height:9px;background:#fff;border:1.5px solid var(--accent);border-radius:2px}
+.selbox .h.nw{left:-5px;top:-5px}.selbox .h.ne{right:-5px;top:-5px}.selbox .h.se{right:-5px;bottom:-5px}.selbox .h.sw{left:-5px;bottom:-5px}
+.dimpill{position:absolute;left:0;top:-27px;background:var(--pill-bg);color:#fff;font:500 11px/1 var(--gsc);padding:5px 8px;border-radius:7px;white-space:nowrap}
+.resultcard{width:272px;background:var(--hud-bg);color:var(--hud-ink);border:1px solid var(--hud-line);border-radius:20px;box-shadow:var(--hud-shadow);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);padding:9px;font-family:var(--gsf)}
+.resultcard .th{position:relative;height:128px;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:conic-gradient(#e9ebef 25%,#f7f8fa 0 50%,#e9ebef 0 75%,#f7f8fa 0) 0 0/12px 12px}
+.ss[data-hud="dark"] .resultcard .th{background:conic-gradient(#2a2d33 25%,#23262b 0 50%,#2a2d33 0 75%,#23262b 0) 0 0/12px 12px}
+.resultcard .acts{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:6px;padding:8px;background:rgba(12,14,18,.42)}
+.resultcard .acts .b{background:rgba(255,255,255,.94);color:#1b1d22;height:38px;min-width:38px;padding:0 8px}
+.resultcard .meta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--hud-muted);font-variant-numeric:tabular-nums}
+.resultcard .ok{display:inline-flex;align-items:center;gap:3px;background:var(--hud-track);border-radius:8px;padding:3px 7px;font-size:11px;color:var(--hud-ink)}
+.resultcard .ok .ms{font-size:14px}
+.textpop{width:340px;background:var(--hud-bg);color:var(--hud-ink);border:1px solid var(--hud-line);border-radius:18px;box-shadow:var(--hud-shadow);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);padding:12px;display:grid;gap:9px;font-family:var(--gsf)}
+.textpop .tph{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px}
+.textpop .src{margin-left:auto;font:500 11px/1 var(--gsc);background:var(--hud-track);padding:5px 8px;border-radius:8px;color:var(--hud-muted)}
+.textpop .ta{border:1px solid var(--hud-line);border-radius:10px;padding:9px 11px;background:var(--hud-solid);font:400 12.5px/1.5 var(--gsf);color:var(--hud-ink)}
+.textpop .row{display:flex;flex-wrap:wrap;gap:6px}
+.textpop .row .b{height:34px;background:var(--hud-track);font-size:13px}
+.textpop .row .b.on{background:var(--hud-sel-bg);color:var(--hud-sel-ink)}
+.pinmock{position:relative;border-radius:12px;overflow:hidden;box-shadow:0 16px 34px rgba(10,14,20,.34),0 0 0 1px rgba(255,255,255,.5);background:#fff;font-family:var(--gsf)}
+.pinmock .pinbar{position:absolute;left:50%;top:7px;transform:translateX(-50%);display:flex;gap:2px;padding:3px;border-radius:20px;background:var(--hud-bg);border:1px solid var(--hud-line);box-shadow:var(--hud-shadow);color:var(--hud-ink)}
+.pinmock .pinbar .b{height:32px;min-width:32px;padding:0 5px}
+.pinmock .pinbar .b .ms{font-size:17px}
+.qm{display:inline-flex;gap:2px;padding:4px;border-radius:22px;background:var(--hud-bg);border:1px solid var(--hud-line);box-shadow:var(--hud-shadow);color:var(--hud-ink);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+.qm .b{height:36px;min-width:36px}
+.strip-v{width:92px;border-radius:12px;overflow:hidden;background:var(--hud-bg);border:1px solid var(--hud-line);box-shadow:var(--hud-shadow);padding:5px;display:grid;gap:4px}
+.strip-v .sl{height:44px;border-radius:6px;background:linear-gradient(180deg,#eef2f8,#fbfbf9);border:1px solid rgba(20,30,50,.06)}
+.entryrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.tapp{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:#fff;box-shadow:0 2px 6px rgba(20,30,50,.2)}
+.tapp.snap{background:linear-gradient(135deg,#FF7A50,#D93A1C)}
+.tapp .ms{font-size:24px}
+.qstile{display:inline-flex;align-items:center;gap:10px;padding:12px 16px;border-radius:16px;background:var(--hud-primary);color:var(--hud-on-primary);font-weight:600;font-size:14px}
+</style>
+<style>
+/* app windows: studio + library + onboarding */
+.appwin-scroll{overflow-x:auto;border-radius:16px}
+.appwin{border-radius:16px;overflow:hidden;background:var(--hud-solid);color:var(--hud-ink);box-shadow:0 30px 60px -30px rgba(10,14,20,.5),0 0 0 1px rgba(10,14,20,.12);font-family:var(--gsf)}
+.appwin .wcap{height:38px;display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--hud-track);font-size:13px}
+.appwin .wcap .ic{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,#FF7A50,#D93A1C);display:grid;place-items:center;color:#fff}
+.appwin .wcap .ic .ms{font-size:15px}
+.appwin .wcap .ctl{margin-left:auto;display:flex;gap:14px;color:var(--hud-muted)}
+.appwin .wcap .ctl .ms{font-size:17px}
+.studio{width:1080px}
+.studio .tb{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--hud-line)}
+.studio .tb .fname{font-weight:600;font-size:14px}
+.studio .tb .sub{font-size:12px;color:var(--hud-muted);font-family:var(--gsc)}
+.studio .tb .grow{flex:1}
+.studio .tb .zoom{font:500 12px var(--gsc);padding:0 10px;height:34px;display:inline-flex;align-items:center;border-radius:17px;background:var(--hud-track)}
+.studio .tb .b{height:36px}
+.studio .tb .b.fill{background:var(--hud-primary);color:var(--hud-on-primary);padding:0 16px;font-weight:600}
+.studio .tb .b.tonal{background:var(--hud-track)}
+.studio .body{display:grid;grid-template-columns:1fr 288px;height:560px}
+.studio .work{position:relative;background:var(--hud-track);overflow:hidden;display:grid;place-items:center}
+.studio .strip{position:absolute;top:14px;left:50%;transform:translateX(-50%);display:inline-flex;align-items:center;gap:2px;padding:4px 8px;border-radius:28px;background:var(--hud-bg);border:1px solid var(--hud-line);box-shadow:var(--hud-shadow);z-index:3}
+.studio .strip .b{height:40px;min-width:40px;padding:0 8px}
+.studio .strip .div{height:24px}
+.studio .props{position:absolute;top:74px;left:50%;transform:translateX(-50%);display:inline-flex;align-items:center;gap:10px;padding:6px 12px;border-radius:18px;background:var(--hud-bg);border:1px solid var(--hud-line);box-shadow:var(--hud-shadow);font-size:13px;z-index:3;white-space:nowrap}
+.studio .props .sw{width:18px;height:18px;border-radius:50%;border:2px solid transparent}
+.studio .props .sw.on{border-color:var(--hud-ink)}
+.studio .props .wd span{width:24px;height:22px;border-radius:7px;display:inline-grid;place-items:center;background:var(--hud-track);margin-left:3px}
+.studio .props .wd span.on{background:var(--hud-sel-bg)}
+.studio .props .wd i{display:block;background:currentColor;border-radius:2px;width:13px}
+.studio .props .sep{width:1px;height:20px;background:var(--hud-line);display:inline-block}
+.studio .frame{position:relative;padding:38px;border-radius:14px;margin-top:96px;background:linear-gradient(135deg,#8EC5FF,#6A5CFF)}
+.studio .shotwrap{position:relative;border-radius:10px;overflow:hidden;box-shadow:0 16px 40px rgba(10,14,20,.35);width:360px}
+.studio .ann{position:absolute;inset:0;overflow:visible;pointer-events:none}
+.studio .panel{border-left:1px solid var(--hud-line);padding:14px 15px;display:grid;gap:13px;align-content:start;font-size:13px;overflow:auto}
+.studio .panel .ph{display:flex;gap:2px;background:var(--hud-track);border-radius:12px;padding:2px}
+.studio .panel .ph span{flex:1;text-align:center;padding:6px;border-radius:10px;font-weight:600;font-size:13px}
+.studio .panel .ph span.on{background:var(--hud-solid);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.studio .panel h5{margin:0;font:500 11px/1 var(--gsc);letter-spacing:.06em;text-transform:uppercase;color:var(--hud-muted)}
+.studio .bgs{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+.studio .bgs button{height:36px;border-radius:9px;border:2px solid transparent;cursor:default}
+.studio .bgs button.on{border-color:var(--hud-ink)}
+.studio .bgs .none{background:conic-gradient(#e2e5ea 25%,#fff 0 50%,#e2e5ea 0 75%,#fff 0) 0 0/9px 9px}
+.studio .bgs .auto{background:var(--hud-track);font:600 10px var(--gsf);color:var(--hud-ink)}
+.studio .rng{display:grid;gap:4px}
+.studio .rng .lab{display:flex;justify-content:space-between;color:var(--hud-muted);font-size:12px}
+.studio .rng .bar2{height:5px;border-radius:3px;background:var(--hud-track);position:relative}
+.studio .rng .bar2 i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--accent)}
+.studio .rng .bar2 b{position:absolute;top:-4px;width:13px;height:13px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.studio .asp{display:flex;flex-wrap:wrap;gap:6px}
+.studio .asp span{border:1px solid var(--hud-line);border-radius:9px;padding:4px 9px;font:500 12px var(--gsc)}
+.studio .asp span.on{background:var(--hud-sel-bg);color:var(--hud-sel-ink);border-color:transparent}
+.studio .layers{display:grid;gap:4px}
+.studio .layers div{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:9px;background:var(--hud-track);font-size:12.5px}
+.studio .layers .ms{font-size:17px;color:var(--hud-muted)}
+.studio .layers .grow{flex:1}
+.studio .foot{display:flex;gap:16px;align-items:center;padding:6px 14px;border-top:1px solid var(--hud-line);font:500 12px var(--gsc);color:var(--hud-muted);flex-wrap:wrap}
+.library{width:1080px}
+.library .lb{display:grid;grid-template-columns:196px 1fr 280px;height:520px}
+.library .rail{border-right:1px solid var(--hud-line);padding:12px;display:grid;gap:4px;align-content:start;font-size:13.5px}
+.library .rail span{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:20px}
+.library .rail span.on{background:var(--hud-sel-bg);color:var(--hud-sel-ink);font-weight:600}
+.library .rail .sp{height:1px;background:var(--hud-line);margin:8px 4px;padding:0}
+.library main{padding:14px 16px;display:grid;gap:12px;align-content:start;overflow:hidden}
+.library .searchrow{display:flex;gap:10px;align-items:center}
+.library .search{flex:1;height:40px;border-radius:20px;background:var(--hud-track);display:flex;align-items:center;gap:10px;padding:0 15px;color:var(--hud-muted);font-size:13.5px}
+.library .newcap{height:40px;border-radius:20px;background:var(--hud-primary);color:var(--hud-on-primary);padding:0 16px 0 12px;display:inline-flex;align-items:center;gap:8px;font:600 13.5px var(--gsf);border:0}
+.library .fchips{display:flex;gap:6px;flex-wrap:wrap}
+.library .fchips span{border:1px solid var(--hud-line);border-radius:10px;padding:5px 11px;font-size:12.5px}
+.library .fchips span.on{background:var(--hud-sel-bg);color:var(--hud-sel-ink);border-color:transparent}
+.library .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
+.library .tile{border-radius:13px;overflow:hidden;background:var(--hud-track);border:2px solid transparent}
+.library .tile.on{border-color:var(--hud-primary)}
+.library .tile .tv{height:96px;position:relative;overflow:hidden;background:conic-gradient(#e2e5ea 25%,#f4f5f7 0 50%,#e2e5ea 0 75%,#f4f5f7 0) 0 0/11px 11px}
+.library .tile .tv .kind{position:absolute;left:6px;top:6px;background:rgba(0,0,0,.6);color:#fff;border-radius:6px;padding:2px 5px;font:500 10px var(--gsc);display:flex;gap:3px;align-items:center}
+.library .tile .tv .kind .ms{font-size:12px}
+.library .tile .tm{padding:6px 8px;font-size:11px;color:var(--hud-muted);display:flex;justify-content:space-between}
+.library .det{border-left:1px solid var(--hud-line);padding:14px 15px;display:grid;gap:10px;align-content:start;font-size:12.5px}
+.library .det .pv{border-radius:12px;overflow:hidden;background:var(--hud-track);height:130px}
+.library .det dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0}
+.library .det dt{color:var(--hud-muted)}
+.library .det dd{margin:0;font-family:var(--gsc);font-size:11.5px}
+.library .det .found{background:var(--hud-track);border-radius:10px;padding:8px 10px;font-size:12px;line-height:1.5}
+.library .det .found mark{background:#ffe08a;color:#1b1d22;border-radius:3px;padding:0 2px}
+.library .det .ab{display:flex;gap:6px;flex-wrap:wrap}
+.library .det .ab .b{height:34px;background:var(--hud-track)}
+.onb{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.onb .appwin .wcap{height:30px;font-size:12px}
+.onb .ob{padding:16px 17px;display:grid;gap:9px;align-content:start;min-height:270px;font-size:13px}
+.onb .ob h4{font-size:16px}
+.onb .ob .muted{color:var(--hud-muted)}
+.onb .ob .btns{display:flex;gap:8px;margin-top:auto;flex-wrap:wrap}
+.onb .ob .fill{border:0;border-radius:18px;background:var(--hud-primary);color:var(--hud-on-primary);padding:8px 15px;font:600 13px var(--gsf)}
+.onb .ob .tonal{border:0;border-radius:18px;background:var(--hud-track);padding:8px 13px;font:500 13px var(--gsf);color:var(--hud-ink)}
+.onb .ob .opt{display:flex;gap:9px;align-items:flex-start;border:1px solid var(--hud-line);border-radius:12px;padding:9px 10px}
+.onb .ob .opt.on{border-color:var(--hud-primary);background:color-mix(in srgb,var(--hud-sel-bg) 55%,transparent)}
+.onb .ob .opt .ms{font-size:19px;color:var(--hud-primary)}
+.onb .ob .step{display:flex;gap:8px;align-items:center}
+.onb .ob .step .ms{font-size:18px}
+.onb .ob .ok{color:#1D774A}
+.onb .ob .test{border:1px dashed var(--hud-line);border-radius:10px;padding:8px 10px;font-family:var(--gsc);font-size:12px;display:flex;gap:6px;align-items:center}
+.onb .ob .sw{display:flex;justify-content:space-between;align-items:center}
+.onb .ob .sw i{width:32px;height:18px;border-radius:9px;background:var(--hud-primary);position:relative;display:block}
+.onb .ob .sw i::after{content:"";position:absolute;right:3px;top:3px;width:12px;height:12px;border-radius:50%;background:#fff}
+.onb .ob .sw i.off{background:var(--hud-track);border:1px solid var(--hud-line)}
+.onb .ob .sw i.off::after{left:3px;right:auto;background:var(--hud-muted)}
+.onb .ob .fn{font-family:var(--gsc);font-size:12px;background:var(--hud-track);border-radius:8px;padding:6px 8px;overflow-wrap:anywhere}
+</style>
+<style>
+/* tables, swatches, architecture, phases, risks */
+.tbl{overflow-x:auto;border:1px solid var(--rule);border-radius:14px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.92rem;line-height:1.45}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--rule)}
+thead th{font-family:var(--mono);font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500;background:var(--soft)}
+tbody tr:last-child td{border-bottom:0}
+tr.grp th{background:var(--bg);font-size:.95rem;padding-top:12px;font-weight:650}
+td.k{white-space:nowrap}
+.keys table{min-width:820px}.stack table{min-width:720px}.dec table{min-width:760px}
+.yes{color:var(--green);font-weight:600}.no{color:var(--muted)}
+.swatches{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.swc{border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--surface)}
+.swc .c{height:54px;display:flex;align-items:flex-end;padding:6px 8px;font:500 11px var(--mono)}
+.swc .l{padding:8px 10px;font-size:.84rem;display:grid;gap:2px}
+.swc .l span{color:var(--muted);font-family:var(--mono);font-size:.74rem}
+.spec-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.spec-list .card-p{gap:6px}
+.spec-list dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0;font-size:.9rem}
+.spec-list dt{color:var(--muted)}
+.spec-list dd{margin:0;font-family:var(--mono);font-size:.84rem}
+.fig{margin:0;display:grid;gap:10px}
+.fig-scroll{overflow-x:auto;background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:14px}
+.arch{display:block;width:100%;min-width:900px;height:auto;color:var(--ink)}
+.arch text{fill:currentColor;font-family:var(--sans)}
+.arch .t{font-size:13px;font-weight:600;text-anchor:middle}
+.arch .s{font-size:10.5px;fill:var(--muted);text-anchor:middle}
+.arch .l{font-size:10px;fill:var(--muted);font-family:var(--mono);text-anchor:middle}
+.arch .grp{fill:none;stroke:var(--coral);stroke-width:1.4;stroke-dasharray:6 5}
+.arch .gl{font-size:10.5px;font-family:var(--mono);letter-spacing:.06em;fill:var(--coral)}
+.arch .bx{fill:var(--surface);stroke:var(--ink);stroke-width:1.1}
+.arch .own{fill:var(--coral-soft);stroke:var(--coral);stroke-width:1.3}
+.arch .sys{fill:var(--blue-soft);stroke:var(--blue);stroke-width:1.1}
+.arch .e{stroke:var(--ink);stroke-width:1.2;fill:none}
+.arch .af{fill:var(--ink)}
+figcaption{font-size:.9rem;color:var(--muted);max-width:var(--measure)}
+.timeline{display:flex;height:34px;border-radius:10px;overflow:hidden;border:1px solid var(--rule);font:500 12px var(--mono)}
+.timeline span{display:flex;align-items:center;justify-content:center;border-right:1px solid var(--bg);background:var(--coral-soft);color:var(--coral-ink);white-space:nowrap;overflow:hidden;padding:0 4px}
+.timeline span:nth-child(even){background:var(--soft);color:var(--ink)}
+.timeline span:last-child{border-right:0}
+.phases{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+.phase{background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:16px 18px;display:grid;gap:8px;align-content:start}
+.phase .when{font-family:var(--mono);font-size:.76rem;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+.phase .when b{color:var(--coral-ink);font-weight:500}
+.phase ul{margin:0;padding-left:1.1em;display:grid;gap:3px;font-size:.93rem}
+.phase .done{font-size:.9rem;border-top:1px solid var(--rule);padding-top:8px;color:var(--muted)}
+.phase .done b{color:var(--ink);font-weight:600}
+.risks{display:grid;gap:10px}
+.risk{display:grid;grid-template-columns:100px 1fr;gap:14px;background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:12px 16px}
+.risk .lvl{font-family:var(--mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;padding:4px 0;text-align:center;border-radius:6px;align-self:start}
+.lvl.check{background:var(--blue-soft);color:var(--blue)}
+.lvl.med{background:var(--amber-soft);color:var(--amber)}
+.lvl.low{background:var(--green-soft);color:var(--green)}
+.risk .fix{color:var(--muted);font-size:.93rem;margin-top:3px}
+/* header + toc + brand + chips */
+.top{padding-block:44px 20px;display:grid;gap:16px}
+.brand{display:flex;align-items:center;gap:16px}
+.brand svg{width:60px;height:60px;flex:none;border-radius:17px;box-shadow:0 8px 22px -8px rgba(210,70,31,.55)}
+.brand h1{font-size:clamp(2.4rem,1.7rem + 3.1vw,3.9rem);font-weight:720;letter-spacing:-.035em;font-variation-settings:"opsz" 144}
+.lede{font-size:1.15rem;max-width:64ch}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:.84rem;padding:4px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--rule)}
+.chip.wait{background:var(--coral-soft);border-color:transparent;color:var(--coral-ink);font-weight:600}
+.chip .ms{font-size:17px}
+.toc{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.92rem;padding-block:12px;border-block:1px solid var(--rule)}
+.toc a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--rule)}
+.toc a:hover{border-color:var(--coral)}
+.tgl{display:inline-flex;border:1px solid var(--rule);border-radius:999px;overflow:hidden;background:var(--surface)}
+.tgl button{border:0;background:none;padding:5px 13px;cursor:pointer;font-size:.85rem}
+.tgl button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--rule);font-size:.85rem;color:var(--muted)}
+@media (max-width:640px){.risk{grid-template-columns:1fr}.risk .lvl{justify-self:start;padding:4px 10px}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+<div class="wrap ss" data-hud="light" id="page">
+<header class="top">
+  <p class="eyebrow">Build plan for approval · 27 September 2026</p>
+  <div class="brand">
+    <svg viewBox="0 0 108 108" role="img" aria-label="StudioSnap icon"><defs><linearGradient id="ssg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF7A50"/><stop offset="1" stop-color="#D2391B"/></linearGradient></defs><rect width="108" height="108" rx="30" fill="url(#ssg)"/><path d="M30 47V36a6 6 0 0 1 6-6h11M61 30h11a6 6 0 0 1 6 6v11M78 61v11a6 6 0 0 1-6 6H61M47 78H36a6 6 0 0 1-6-6V61" stroke="#fff" stroke-width="7" stroke-linecap="round" fill="none"/><circle cx="54" cy="54" r="9" fill="#fff"/></svg>
+    <h1>StudioSnap</h1>
+  </div>
+  <p class="lede">A capture studio for Googlebook. Press one key, pick an area, a window or the whole screen, and the shot is copied, saved and ready to mark up. This page is the plan and the full UI design, waiting for your go-ahead.</p>
+  <div class="chips">
+    <span class="chip wait"><span class="ms">hourglass_top</span>Waiting for your go-ahead</span>
+    <span class="chip"><span class="ms">calendar_month</span>6 phases, about 8–9 weeks</span>
+    <span class="chip"><span class="ms">code</span>Kotlin + Jetpack Compose, MIT</span>
+    <span class="chip"><span class="ms">wifi_off</span>No internet permission</span>
+  </div>
+  <nav class="toc" aria-label="Sections">
+    <a href="#bar">The capture bar</a><a href="#surfaces">Every surface</a><a href="#studio">Studio</a><a href="#library">Library</a><a href="#onboarding">First run</a><a href="#keys">Keyboard</a><a href="#look">Look and feel</a><a href="#build">How it's built</a><a href="#phases">Phases</a><a href="#risks">Risks</a><a href="#decide">Decisions</a>
+  </nav>
+</header>
+
+<section id="idea">
+  <div class="head">
+    <p class="eyebrow">What we're building</p>
+    <h2>One app that owns capture, with a floating bar as its face</h2>
+    <p>The whole product hangs off a floating toolbar. It appears over whatever is on screen when you press the Screenshot key, and everything else — selection, result cards, pins, the editor — flows from it. The <a href="https://claude.ai/artifact/UPg6nU8BeVDgCianp9U8pR">feasibility study</a> proved on your HP Googlebook that this works: capture in 7–16 ms with no prompt, the bar can take over the screenshot keys, and its overlays sit above the taskbar.</p>
+  </div>
+  <div class="cols">
+    <div class="card-p"><h3>What it does</h3><ul class="clean"><li>Area, window, whole screen, scrolling and text capture</li><li>Auto-copy and auto-save, a floating result card, pins on top</li><li>A real editor: arrows, steps, blur, redaction, beautify frames</li><li>Screen recording to MP4, GIF and WebP</li><li>A searchable library of everything you've captured</li></ul></div>
+    <div class="card-p"><h3>How it earns trust</h3><ul class="clean"><li>Open source, MIT, no internet permission in the capture app</li><li>The accessibility service does the work; a plain screen explains it before Android's dialog</li><li>Key takeover is a switch you can leave off</li><li>Redaction is solid by default, because blur can be reversed</li><li>Runs in a picker-only mode if you decline accessibility</li></ul></div>
+    <div class="card-p"><h3>Where the design comes from</h3><p>CleanShot X and Snagit for the flow and the editor, ShareX for power, Material 3 Expressive for the native Googlebook look. The bar follows the Expressive floating-toolbar spec; Compose doesn't ship that component yet, so we build our own to match.</p></div>
+  </div>
+</section>
+<section id="bar">
+  <div class="head">
+    <p class="eyebrow">Surface 1 · the toolbar</p>
+    <h2>The capture bar</h2>
+    <p>A 64 dp floating pill, centered 16 dp above the taskbar. Only the chosen mode and source carry a text label; everything else is an icon with a tooltip that names its shortcut key. It moves to the top edge when your selection needs the space, and you can drag it anywhere by the grip. Below are the states it takes, on light and dark content, rendered at real size.</p>
+    <div class="entryrow" style="margin-top:2px">
+      <span style="font-size:.85rem;color:var(--muted)">Preview theme</span>
+      <span class="tgl" role="group" aria-label="HUD theme"><button type="button" data-theme-btn="light" aria-pressed="true">Light</button><button type="button" data-theme-btn="dark" aria-pressed="false">Dark</button></span>
+    </div>
+  </div>
+  <div class="specs" id="specs"></div>
+  <p style="font-size:.9rem;color:var(--muted)">The parts, left to right:</p>
+  <ol class="legend" aria-label="Parts of the bar">
+    <li><span><b>Grip.</b> Drag to move the bar; it snaps to the top or bottom edge. Double-click resets.</span></li>
+    <li><span><b>Mode.</b> Screenshot or Record. <kbd>R</kbd> switches.</span></li>
+    <li><span><b>Source.</b> Area, Window, Screen, Scrolling, Text. Record mode shows only the first three.</span></li>
+    <li><span><b>Timer and options.</b> Off, 3, 5 or 10 s. Options hold freeze, pointer, shadow and what happens after capture.</span></li>
+    <li><span><b>Last area.</b> Re-captures the previous region. Also <kbd>Ctrl</kbd> + Screenshot key.</span></li>
+    <li><span><b>Capture.</b> The one filled button. It turns red for Record and shows the countdown when a timer runs.</span></li>
+    <li><span><b>Collapse and close.</b> Collapsed, the bar keeps only mode and Capture. <kbd>Esc</kbd> closes.</span></li>
+  </ol>
+</section>
+<section id="surfaces">
+  <div class="head">
+    <p class="eyebrow">Surfaces 2 to 9</p>
+    <h2>Every surface StudioSnap draws over your screen</h2>
+    <p>These live in accessibility overlay windows, which sit above apps, the status bar and the taskbar. They share the bar's frosted surface, 20 dp corners and Google Sans Flex, so the whole thing reads as one tool.</p>
+  </div>
+  <div class="surfaces">
+    <article class="surf"><div class="viz"><div class="mini" style="width:200px"><div class="cap"><span class="ms">public</span>Field Notes</div><div class="bd" style="padding:0"><div class="selbox" style="margin:14px 16px;height:70px"><span class="h nw"></span><span class="h ne"></span><span class="h se"></span><span class="h sw"></span><span class="dimpill">1170 × 630</span></div></div></div></div><div class="txt"><span class="tag">Selection layer</span><h3>Freeze, aim, snap</h3><p>The screen freezes the moment the bar opens, so menus and hover states hold still. Everything outside your selection dims. A crosshair and a 6× loupe show exact pixels and the colour under the pointer. The W × H pill counts real pixels.</p><ul class="clean"><li>Hover highlights the window or element under the pointer; click grabs it, drag draws your own area.</li><li>Arrow keys nudge 1 px, <kbd>Shift</kbd> 10; handles resize in "adjust" mode.</li></ul></div></article>
+    <article class="surf"><div class="viz"><div class="resultcard"><div class="th"><div class="acts"><button class="b" data-tip="Copy"><span class="ms">content_copy</span></button><button class="b" data-tip="Annotate"><span class="ms">edit</span></button><button class="b" data-tip="Pin"><span class="ms">push_pin</span></button><button class="b" data-tip="Text"><span class="ms">text_fields</span></button><button class="b" data-tip="Share"><span class="ms">ios_share</span></button><button class="b" data-tip="More"><span class="ms">more_horiz</span></button></div></div><div class="meta"><span>Area · 718 × 191</span><span style="display:flex;gap:6px"><span class="ok"><span class="ms">content_copy</span>Copied</span><span class="ok"><span class="ms">check</span>Saved</span></span></div></div></div><div class="txt"><span class="tag">Result card</span><h3>The shot, ready to use</h3><p>Slides in bottom-left, above the taskbar, with "Copied" and "Saved" already done. Hover for Copy, Annotate, Pin, Text, Share and More. Drag the thumbnail straight into Gmail or Docs. Stays 9 s, pauses while hovered, stacks up to three.</p></div></article>
+    <article class="surf"><div class="viz"><div class="pinmock" style="width:180px;height:120px;background:linear-gradient(135deg,#fffbe9,#fff3d6)"><div class="pinbar"><button class="b" data-tip="Opacity"><span class="ms">opacity</span></button><button class="b" data-tip="Click-through"><span class="ms">lock_open</span></button><button class="b" data-tip="Copy"><span class="ms">content_copy</span></button><button class="b" data-tip="Close"><span class="ms">close</span></button></div><div style="padding:34px 16px 0;color:#6b5500;font-size:13px"><b>Trip packing</b><br>Rain shell · Headlamp</div></div></div><div class="txt"><span class="tag">Pins</span><h3>Keep a shot on top</h3><p>Any capture can float above your apps as reference. Drag to move, scroll to zoom. The hover bar sets opacity, click-through, copy, annotate and close. <kbd>Action</kbd> <kbd>Shift</kbd> <kbd>P</kbd> hides or shows all pins.</p></div></article>
+    <article class="surf"><div class="viz"><div class="textpop"><div class="tph"><span class="ms">text_fields</span>Text<span class="src">Exact text from the app</span></div><div class="ta">Five spring hikes near the coast<br>By Mara Lindqvist · 8 min read</div><div class="row"><button class="b on"><span class="ms">check</span>Copied</button><button class="b"><span class="ms">wrap_text</span>Line breaks</button><button class="b"><span class="ms">image_search</span>Lens</button><button class="b"><span class="ms">translate</span></button></div></div></div><div class="txt"><span class="tag">Text</span><h3>Copy text from anything</h3><p>Text mode reads the exact text that apps expose through accessibility, so there are no OCR typos. Pixels without text data go through on-device OCR. QR codes and links become buttons. Copied automatically.</p></div></article>
+    <article class="surf"><div class="viz"><div class="entryrow" style="gap:14px"><div class="strip-v"><div class="sl"></div><div class="sl"></div><div class="sl"></div></div><div class="hudpill" style="transform:scale(.82)"><span class="ms">swipe_vertical</span><span class="info">Scrolling · <b>6</b> frames · <b>5,210</b> px</span><span class="stop" style="border-radius:20px;padding:8px 12px 8px 10px;display:inline-flex;align-items:center;gap:4px;background:var(--hud-primary)"><span class="ms">check</span>Done</span></div></div></div><div class="txt"><span class="tag">Scrolling</span><h3>Long captures, stitched</h3><p>Pick a window; StudioSnap scrolls it about ⅔ of a page at a time, grabs the window and stitches as it goes. A live preview strip grows beside it. Sticky headers are dropped. Manual mode lets you scroll yourself for apps that ignore scroll commands.</p></div></article>
+    <article class="surf"><div class="viz"><div class="hudpill"><span class="dot"></span><span class="tm">00:42</span><button class="b" data-tip="Pause"><span class="ms">pause</span></button><button class="b stop" data-tip="Stop"><span class="ms">stop</span>Stop</button><span class="div"></span><button class="b on" data-tip="Microphone"><span class="ms">mic</span></button><button class="b on" data-tip="Camera"><span class="ms">face</span></button><button class="b" data-tip="Draw"><span class="ms">draw</span></button></div></div><div class="txt"><span class="tag">Recording</span><h3>A small pill while recording</h3><p>After Android's share picker and a 3-2-1 countdown, the bar shrinks to this pill: time, pause, stop, mic, camera bubble, draw and discard. A dashed outline sits just outside the recorded area so it never lands in the video. Clicks and shortcuts can show as ripples and keycaps.</p></div></article>
+    <article class="surf"><div class="viz"><div style="display:grid;gap:12px;place-items:center"><div class="selbox" style="width:150px;height:56px;background:linear-gradient(135deg,#bfe0f4,#f2e6d4)"><span class="h nw"></span><span class="h se"></span></div><div class="qm"><button class="b on" data-tip="Arrow"><span class="ms">arrow_outward</span></button><button class="b" data-tip="Box"><span class="ms">rectangle</span></button><button class="b" data-tip="Highlight"><span class="ms">ink_highlighter</span></button><button class="b" data-tip="Text"><span class="ms">title</span></button><button class="b" data-tip="Step"><span class="ms">counter_1</span></button><button class="b" data-tip="Redact"><span class="ms">blur_on</span></button><button class="b" data-tip="Done"><span class="ms">check</span></button></div></div></div><div class="txt"><span class="tag">Quick markup</span><h3>Annotate in place</h3><p>With "Mark up before saving" on, a compact tool strip docks to the edge of your selection: arrow, box, highlight, pen, text, step number, redact, undo, done. The markup stays editable later in Studio.</p></div></article>
+    <article class="surf"><div class="viz"><div style="display:grid;gap:14px;place-items:center"><div class="entryrow"><span class="tapp"><span class="ms" style="color:#44506a">apps</span></span><span class="tapp"><span class="ms" style="color:#3b7be8">public</span></span><span class="tapp snap"><span class="ms" style="color:#fff">screenshot_region</span></span><span class="tapp"><span class="ms" style="color:#2d3748">terminal</span></span></div><div class="qstile"><span class="ms">screenshot_region</span>Screen capture</div></div></div><div class="txt"><span class="tag">Ways in</span><h3>Keys, taskbar, tile, launcher</h3><p>The Screenshot key or <kbd>Action</kbd> <kbd>Shift</kbd> <kbd>S</kbd>. A second launcher icon, <b>StudioSnap Capture</b>, opens the bar in one click. There's a Quick Settings tile and long-press shortcuts: Area, Window, Screen, Record, Text.</p></div></article>
+  </div>
+</section>
+<section id="studio">
+  <div class="head">
+    <p class="eyebrow">Surface 10</p>
+    <h2>Studio, the editor</h2>
+    <p>A normal resizable window, opened from a result card, a pin or the library. The tools sit in a floating strip at the top — the same pill as the capture bar — with a property bar beneath for the active tool. Frame and Layers live in the right panel. Every annotation stays editable after saving.</p>
+  </div>
+  <div class="appwin-scroll"><div class="appwin studio ss" data-hud="light">
+    <div class="wcap"><span class="ic"><span class="ms">screenshot_region</span></span>StudioSnap · Studio<span class="ctl"><span class="ms">remove</span><span class="ms">crop_square</span><span class="ms">close</span></span></div>
+    <div class="tb">
+      <div><div class="fname">Snap 2026-09-27 at 16.12.08</div><div class="sub">Area · 1170 × 630 px · Browser</div></div>
+      <span class="grow"></span>
+      <button class="b" data-tip="Undo · Ctrl+Z"><span class="ms">undo</span></button>
+      <button class="b" data-tip="Redo"><span class="ms">redo</span></button>
+      <span class="zoom">Fit · 64%</span>
+      <span class="grow"></span>
+      <button class="b tonal"><span class="ms">content_copy</span>Copy</button>
+      <button class="b tonal"><span class="ms">ios_share</span>Share</button>
+      <button class="b fill"><span class="ms">check</span>Save</button>
+    </div>
+    <div class="body">
+      <div class="work">
+        <div class="strip" role="toolbar" aria-label="Studio tools">
+          <button class="b" data-tip="Select · V"><span class="ms">arrow_selector_tool</span></button>
+          <button class="b on" data-tip="Arrow · A"><span class="ms">arrow_outward</span></button>
+          <button class="b" data-tip="Line · L"><span class="ms">horizontal_rule</span></button>
+          <button class="b" data-tip="Box · R"><span class="ms">rectangle</span></button>
+          <button class="b" data-tip="Ellipse · O"><span class="ms">circle</span></button>
+          <span class="div"></span>
+          <button class="b" data-tip="Text · T"><span class="ms">title</span></button>
+          <button class="b" data-tip="Callout · C"><span class="ms">chat_bubble</span></button>
+          <button class="b" data-tip="Step · N"><span class="ms">counter_1</span></button>
+          <span class="div"></span>
+          <button class="b" data-tip="Pen · P"><span class="ms">ink_pen</span></button>
+          <button class="b" data-tip="Highlighter · H"><span class="ms">ink_highlighter</span></button>
+          <span class="div"></span>
+          <button class="b" data-tip="Redact · B"><span class="ms">blur_on</span></button>
+          <button class="b" data-tip="Spotlight · S"><span class="ms">highlight</span></button>
+          <button class="b" data-tip="Magnifier · M"><span class="ms">zoom_in</span></button>
+          <span class="div"></span>
+          <button class="b" data-tip="Emoji · E"><span class="ms">add_reaction</span></button>
+          <button class="b" data-tip="Crop · K"><span class="ms">crop</span></button>
+        </div>
+        <div class="props">
+          <span style="color:var(--hud-muted)">Arrow</span>
+          <span class="sw on" style="background:#E4502B"></span><span class="sw" style="background:#F5B400"></span><span class="sw" style="background:#1FA463"></span><span class="sw" style="background:#1A73E8"></span><span class="sw" style="background:#1B1D22"></span>
+          <span class="sep"></span>
+          <span class="wd"><span><i style="height:2px"></i></span><span class="on"><i style="height:4px"></i></span><span><i style="height:6px"></i></span></span>
+          <span class="sep"></span>
+          <span style="color:var(--hud-muted)">Style</span><span class="asp" style="display:inline-flex"><span class="on">Straight</span><span>Curved</span></span>
+        </div>
+        <div class="frame">
+          <div class="shotwrap">
+            <div class="mini" style="width:360px;box-shadow:none;border-radius:10px">
+              <div class="cap"><span class="ms">public</span>fieldnotes.example/spring-hikes</div>
+              <div class="bd" style="padding:14px 16px"><div style="font:600 11px/1 var(--gsf);color:#1d5a44;letter-spacing:.03em;text-transform:uppercase">Guides · Sep 2026</div><h5 style="font-size:17px;margin:6px 0 4px">Five spring hikes near the coast</h5><div style="height:52px;border-radius:8px;margin:8px 0;background:linear-gradient(180deg,#bfe0f4,#f2e6d4)"></div><div style="background:#fffdf6;border:1px solid #e3e1d8;border-radius:8px;padding:8px 10px;font-size:11px"><b>Trail checklist</b><br>Two liters of water · A wind layer · An offline map</div><div style="margin-top:8px;font-size:11px;color:#2a3140">Questions about permits? Write to ranger@fieldnotes.example</div></div>
+            </div>
+            <svg class="ann" viewBox="0 0 360 300" aria-hidden="true">
+              <defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#E4502B"/></marker></defs>
+              <path d="M300 40 C250 60 210 78 176 96" stroke="#E4502B" stroke-width="4" fill="none" marker-end="url(#ah)"/>
+              <rect x="16" y="150" width="228" height="46" rx="6" fill="none" stroke="#E4502B" stroke-width="3"/>
+              <rect x="150" y="238" width="150" height="16" rx="3" fill="#1B1D22"/>
+              <circle cx="30" cy="150" r="14" fill="#E4502B"/><text x="30" y="155" font-family="Google Sans Code" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+              <circle cx="300" cy="40" r="14" fill="#E4502B"/><text x="300" y="45" font-family="Google Sans Code" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <aside class="panel">
+        <div class="ph"><span class="on">Frame</span><span>Layers</span></div>
+        <h5>Background</h5>
+        <div class="bgs"><button class="none"></button><button class="auto">Auto</button><button style="background:linear-gradient(135deg,#FF9A76,#F2542D)"></button><button class="on" style="background:linear-gradient(135deg,#8EC5FF,#6A5CFF)"></button><button style="background:linear-gradient(135deg,#B7F0D4,#3BB78F)"></button></div>
+        <div class="rng"><div class="lab">Padding<span>38 dp</span></div><div class="bar2"><i style="width:48%"></i><b style="left:48%"></b></div></div>
+        <div class="rng"><div class="lab">Corners<span>10 dp</span></div><div class="bar2"><i style="width:36%"></i><b style="left:36%"></b></div></div>
+        <h5>Size</h5>
+        <div class="asp"><span class="on">Auto</span><span>16:9</span><span>4:3</span><span>1:1</span><span>9:16</span></div>
+        <h5>Layers</h5>
+        <div class="layers">
+          <div><span class="ms">arrow_outward</span><span class="grow">Arrow</span><span class="ms">visibility</span></div>
+          <div><span class="ms">counter_1</span><span class="grow">Steps 1–2</span><span class="ms">visibility</span></div>
+          <div><span class="ms">rectangle</span><span class="grow">Redaction (solid)</span><span class="ms">lock</span></div>
+        </div>
+      </aside>
+    </div>
+    <div class="foot"><span>1170 × 630 px</span><span>Display P3 → sRGB</span><span class="grow"></span><span>V select · A arrow · R box · T text · N step · B redact · K crop</span></div>
+  </div></div>
+  <div class="cols">
+    <div class="card-p"><h3>Tools</h3><ul class="clean"><li>Arrow (straight, curved, double), line, box, ellipse</li><li>Text, callout, step number (1, A, i)</li><li>Pen and highlighter on Jetpack Ink</li><li>Redact (solid, blur, pixelate), spotlight, magnifier, emoji, crop</li></ul></div>
+    <div class="card-p"><h3>Frame</h3><p>Gradient or wallpaper backgrounds, padding, rounded corners and shadow, plus sizes for slides and social posts. "Auto" picks a background from the screenshot's own edge colours.</p></div>
+    <div class="card-p"><h3>Safe by default</h3><p>Redaction exports as a solid fill, because blur and pixelation can be reversed. Export flattens the image and strips metadata. Auto-redact suggests emails, phone numbers, card numbers and API keys for you to confirm.</p></div>
+  </div>
+</section>
+<section id="library">
+  <div class="head">
+    <p class="eyebrow">Surface 11</p>
+    <h2>Library</h2>
+    <p>What the main launcher icon opens. Every capture lands here, searchable by the text inside it, with filters for recordings, text and pins. Drag any tile out into another app.</p>
+  </div>
+  <div class="appwin-scroll"><div class="appwin library ss" data-hud="light">
+    <div class="wcap"><span class="ic"><span class="ms">screenshot_region</span></span>StudioSnap<span class="ctl"><span class="ms">remove</span><span class="ms">crop_square</span><span class="ms">close</span></span></div>
+    <div class="lb">
+      <nav class="rail" aria-label="Library sections"><span class="on"><span class="ms">photo_library</span>All captures</span><span><span class="ms">videocam</span>Recordings</span><span><span class="ms">text_fields</span>Text</span><span><span class="ms">push_pin</span>Pinned</span><span><span class="ms">delete</span>Trash</span><span class="sp"></span><span><span class="ms">settings</span>Settings</span><span><span class="ms">help</span>Help</span></nav>
+      <main>
+        <div class="searchrow"><div class="search"><span class="ms">search</span>Search text in your captures, like "permit"</div><button class="newcap"><span class="ms">screenshot_region</span>New capture</button></div>
+        <div class="fchips"><span class="on">All</span><span>Screenshots</span><span>Recordings</span><span>Scrolling</span><span>Today</span><span>This week</span></div>
+        <div class="grid">
+          <div class="tile on"><div class="tv" style="background:linear-gradient(135deg,#bfe0f4,#f2e6d4)"><span class="kind"><span class="ms">crop</span>Area</span></div><div class="tm"><span>16:12</span><span>1170×630</span></div></div>
+          <div class="tile"><div class="tv" style="background:linear-gradient(135deg,#2b2f36,#4b5361)"><span class="kind"><span class="ms">videocam</span>0:42</span></div><div class="tm"><span>15:58</span><span>MP4</span></div></div>
+          <div class="tile"><div class="tv" style="background:linear-gradient(180deg,#edf1f7,#fff)"><span class="kind"><span class="ms">select_window</span>Window</span></div><div class="tm"><span>15:41</span><span>Files</span></div></div>
+          <div class="tile"><div class="tv" style="background:linear-gradient(180deg,#fffdf6,#f3e6ad)"><span class="kind"><span class="ms">swipe_vertical</span>Long</span></div><div class="tm"><span>14:20</span><span>1388×5210</span></div></div>
+          <div class="tile"><div class="tv" style="background:linear-gradient(135deg,#98e0c4,#dde6f7)"><span class="kind"><span class="ms">text_fields</span>Text</span></div><div class="tm"><span>Wed</span><span>Note</span></div></div>
+          <div class="tile"><div class="tv" style="background:linear-gradient(135deg,#ffc3ad,#9cc0ff)"><span class="kind"><span class="ms">crop</span>Area</span></div><div class="tm"><span>Wed</span><span>860×480</span></div></div>
+          <div class="tile"><div class="tv" style="background:linear-gradient(135deg,#e0e7ff,#f5e1ff)"><span class="kind"><span class="ms">fullscreen</span>Screen</span></div><div class="tm"><span>Tue</span><span>1920×1200</span></div></div>
+          <div class="tile"><div class="tv" style="background:linear-gradient(135deg,#c7d7ea,#9fb3cd)"><span class="kind"><span class="ms">videocam</span>1:18</span></div><div class="tm"><span>Tue</span><span>GIF</span></div></div>
+        </div>
+      </main>
+      <aside class="det">
+        <div class="pv" style="background:linear-gradient(135deg,#bfe0f4,#f2e6d4)"></div>
+        <div style="font-weight:600;font-size:13.5px">Snap 2026-09-27 at 16.12.08</div>
+        <dl><dt>Kind</dt><dd>Area · Browser</dd><dt>Size</dt><dd>1170 × 630 px</dd><dt>File</dt><dd>2.4 MB · PNG</dd><dt>Where</dt><dd>Pictures/StudioSnap</dd></dl>
+        <div class="found">Found text: “Five spring hikes near the coast… <mark>permit</mark>s? Write to ranger@…”</div>
+        <div class="ab"><button class="b"><span class="ms">edit</span>Annotate</button><button class="b"><span class="ms">content_copy</span>Copy</button><button class="b"><span class="ms">push_pin</span>Pin</button><button class="b"><span class="ms">ios_share</span>Share</button></div>
+      </aside>
+    </div>
+  </div></div>
+</section>
+
+<section id="onboarding">
+  <div class="head">
+    <p class="eyebrow">Surface 12</p>
+    <h2>First run</h2>
+    <p>Four short steps. The second matters most: it explains, before Android's own dialog, exactly what the accessibility service can see and what StudioSnap does with it. Decline, and StudioSnap runs in picker mode instead.</p>
+  </div>
+  <div class="onb">
+    <div class="appwin ss" data-hud="light"><div class="wcap"><span class="ic"><span class="ms">screenshot_region</span></span>Welcome</div><div class="ob">
+      <h4>Capture anything on your Googlebook</h4>
+      <p class="muted">Areas, windows, whole screens, long pages, text and video. Copied, saved and ready to mark up.</p>
+      <div class="step"><span class="ms">keyboard</span>One key to start</div><div class="step"><span class="ms">edit</span>A real editor</div><div class="step"><span class="ms">wifi_off</span>Everything stays on this device</div>
+      <div class="btns"><button class="fill">Get started</button></div></div></div>
+    <div class="appwin ss" data-hud="light"><div class="wcap"><span class="ic"><span class="ms">screenshot_region</span></span>Instant capture</div><div class="ob">
+      <h4>Turn on instant capture</h4>
+      <p class="muted">StudioSnap uses Android's accessibility service to capture without asking every time.</p>
+      <p><b>It can see</b> your screen when you capture, window positions, and the keys you set as shortcuts.</p>
+      <p><b>It never</b> sends anything anywhere. StudioSnap has no internet permission, and its code is public.</p>
+      <div class="step ok"><span class="ms">check_circle</span>Allowed restricted settings</div><div class="step"><span class="ms">radio_button_unchecked</span>Turn on StudioSnap in Accessibility</div>
+      <div class="btns"><button class="fill">Open settings</button><button class="tonal">Use picker mode</button></div></div></div>
+    <div class="appwin ss" data-hud="light"><div class="wcap"><span class="ic"><span class="ms">screenshot_region</span></span>Your capture key</div><div class="ob">
+      <h4>Pick your capture key</h4>
+      <div class="opt on"><span class="ms">radio_button_checked</span><span><b>Screenshot key</b><br><span class="muted">Replaces the system tool. Recommended.</span></span></div>
+      <div class="opt"><span class="ms">radio_button_unchecked</span><span><b>Action + Shift + S</b><br><span class="muted">Keeps the system keys as they are.</span></span></div>
+      <div class="test"><span class="ms" style="color:#1D774A;font-size:18px">check_circle</span>Screenshot key works. Try it anywhere.</div>
+      <div class="btns"><button class="fill">Next</button></div></div></div>
+    <div class="appwin ss" data-hud="light"><div class="wcap"><span class="ic"><span class="ms">screenshot_region</span></span>After capture</div><div class="ob">
+      <h4>What happens after a capture</h4>
+      <div class="sw">Copy to clipboard <i></i></div><div class="sw">Save to Pictures/StudioSnap <i></i></div><div class="sw">Show the result card <i></i></div><div class="sw">Open Studio right away <i class="off"></i></div>
+      <div class="fn">Snap 2026-09-27 at 16.12.08.png</div>
+      <div class="btns"><button class="fill">Finish</button></div></div></div>
+  </div>
+  <p class="note prose">Surface 13 is Settings: shortcuts with a key recorder and conflict warnings, capture, after-capture, recording, text and OCR, pins, storage and naming, appearance, privacy (accessibility, key filtering and picker-free status), and About with licences.</p>
+</section>
+<section id="keys" class="keys">
+  <div class="head">
+    <p class="eyebrow">Keyboard</p>
+    <h2>Default keys</h2>
+    <p>"Action" is the Googlebook's G key (Meta in Android). With key takeover on, StudioSnap sees these first and the system does nothing. With takeover off, bind <kbd>Action</kbd> + a key to "StudioSnap Capture" in the Shortcut Helper (<kbd>Action</kbd> <kbd>/</kbd> → Customize), and StudioSnap never sees your typing.</p>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Action</th><th>Default</th><th>Replaces the system's</th><th>Without takeover</th></tr></thead>
+    <tbody>
+      <tr class="grp"><th colspan="4">Anywhere</th></tr>
+      <tr><td>Open the capture bar</td><td class="k"><kbd>Screenshot</kbd> or <kbd>PrtSc</kbd></td><td>Capture toolbar</td><td class="yes">Your Action shortcut</td></tr>
+      <tr><td>Open the bar (any keyboard)</td><td class="k"><kbd>Action</kbd> <kbd>Shift</kbd> <kbd>S</kbd></td><td>—</td><td class="yes">Your Action shortcut</td></tr>
+      <tr><td>Full screen, right away</td><td class="k"><kbd>Shift</kbd> <kbd>Screenshot</kbd> · <kbd>Action</kbd> <kbd>S</kbd></td><td>Action + S screenshot</td><td class="no">No</td></tr>
+      <tr><td>Area</td><td class="k"><kbd>Action</kbd> <kbd>Ctrl</kbd> <kbd>S</kbd></td><td>Partial screenshot</td><td class="no">No</td></tr>
+      <tr><td>Window</td><td class="k"><kbd>Alt</kbd> <kbd>Screenshot</kbd></td><td>Ctrl + Alt + Show windows</td><td class="no">No</td></tr>
+      <tr><td>Repeat last area</td><td class="k"><kbd>Ctrl</kbd> <kbd>Screenshot</kbd></td><td>—</td><td class="no">No</td></tr>
+      <tr><td>Record</td><td class="k"><kbd>Action</kbd> <kbd>Shift</kbd> <kbd>R</kbd></td><td>—</td><td class="no">No</td></tr>
+      <tr><td>Copy text</td><td class="k"><kbd>Action</kbd> <kbd>Shift</kbd> <kbd>T</kbd></td><td>—</td><td class="no">No</td></tr>
+      <tr><td>Scrolling capture</td><td class="k"><kbd>Action</kbd> <kbd>Shift</kbd> <kbd>L</kbd></td><td>—</td><td class="no">No</td></tr>
+      <tr><td>Show or hide pins</td><td class="k"><kbd>Action</kbd> <kbd>Shift</kbd> <kbd>P</kbd></td><td>—</td><td class="no">No</td></tr>
+      <tr class="grp"><th colspan="4">While the bar is open</th></tr>
+      <tr><td>Area, Window, Screen, Scroll, Text</td><td class="k"><kbd>A</kbd> <kbd>W</kbd> <kbd>F</kbd> <kbd>S</kbd> <kbd>T</kbd></td><td colspan="2">Tab cycles windows in Window mode</td></tr>
+      <tr><td>Switch to Record, capture, close</td><td class="k"><kbd>R</kbd> <kbd>Enter</kbd> <kbd>Esc</kbd></td><td colspan="2">Right-click also cancels</td></tr>
+      <tr><td>Timer, options, last area, all keys</td><td class="k"><kbd>0</kbd> <kbd>O</kbd> <kbd>L</kbd> <kbd>?</kbd></td><td colspan="2"></td></tr>
+      <tr><td>Nudge or resize the selection</td><td class="k"><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> · <kbd>Shift</kbd> ×10</td><td colspan="2">Space moves the selection while dragging</td></tr>
+      <tr><td>Square, from center</td><td class="k"><kbd>Shift</kbd> · <kbd>Alt</kbd> while dragging</td><td colspan="2"></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="look">
+  <div class="head">
+    <p class="eyebrow">Look and feel</p>
+    <h2>A native Googlebook look with one accent</h2>
+    <p>Everything over your screen uses a neutral frosted surface with a single accent, "snap coral". Studio and Library follow your wallpaper colours through Material You, with coral as the fallback. Colour sits only on selected states and the one primary button, so the bar reads the same on any wallpaper.</p>
+  </div>
+  <div class="swatches">
+    <div class="swc"><div class="c" style="background:rgba(250,250,252,.95);color:#1B1D22;border-bottom:1px solid var(--rule)">#FAFAFC · 86%</div><div class="l">HUD surface, light<span>blur 24 dp behind</span></div></div>
+    <div class="swc"><div class="c" style="background:#1E2025;color:#EEF0F3">#1E2025 · 84%</div><div class="l">HUD surface, dark<span>blur 24 dp behind</span></div></div>
+    <div class="swc"><div class="c" style="background:#C23B1A;color:#fff">#C23B1A</div><div class="l">Primary, light<span>white text 5.3:1</span></div></div>
+    <div class="swc"><div class="c" style="background:#FF9275;color:#2B0E06">#FF9275</div><div class="l">Primary, dark<span>dark text 9:1</span></div></div>
+    <div class="swc"><div class="c" style="background:#FFDDD3;color:#8A2710">#FFDDD3</div><div class="l">Selected, light<span>text #8A2710</span></div></div>
+    <div class="swc"><div class="c" style="background:#D32F2F;color:#fff">#D32F2F</div><div class="l">Record<span>fixed, never themed</span></div></div>
+    <div class="swc"><div class="c" style="background:#0A0C10;color:#fff">#0A0C10 · 44%</div><div class="l">Scrim outside selection<span>22% before you drag</span></div></div>
+    <div class="swc"><div class="c" style="background:#fff;color:#1B1D22;border-bottom:1px solid var(--rule)">white + black hairline</div><div class="l">Selection edge<span>visible on any content</span></div></div>
+  </div>
+  <div class="spec-list">
+    <div class="card-p"><h3>Sizes</h3><dl><dt>Bar</dt><dd>64 dp tall, pill</dd><dt>Buttons</dt><dd>44 dp, primary 48 dp</dd><dt>Offset</dt><dd>16 dp from taskbar</dd><dt>Result card</dt><dd>272 dp, 20 dp corners</dd><dt>Loupe</dt><dd>132 dp, 6× zoom</dd></dl></div>
+    <div class="card-p"><h3>Type and icons</h3><dl><dt>Text</dt><dd>Google Sans Flex (system)</dd><dt>Numbers</dt><dd>Google Sans Code, tabular</dd><dt>Bar labels</dt><dd>14 sp medium</dd><dt>Icons</dt><dd>Material Symbols Rounded</dd><dt>Selected</dt><dd>icon fill on</dd></dl></div>
+    <div class="card-p"><h3>Motion</h3><dl><dt>Bar in</dt><dd>spring, ~280 ms</dd><dt>Dodge</dt><dd>340 ms, emphasized</dd><dt>Card in</dt><dd>300 ms slide + fade</dd><dt>Exit</dt><dd>150 ms fade</dd><dt>Reduced motion</dt><dd>fades only</dd></dl></div>
+    <div class="card-p"><h3>Access</h3><dl><dt>Keyboard</dt><dd>every control, visible focus</dd><dt>TalkBack</dt><dd>labels and states</dd><dt>Contrast</dt><dd>AA on both HUD themes</dd><dt>Sound</dt><dd>shutter off by default</dd></dl></div>
+  </div>
+</section>
+<section id="build" class="stack">
+  <div class="head">
+    <p class="eyebrow">How it's built</p>
+    <h2>One APK: a service that owns capture, and windows that open on demand</h2>
+    <p>The accessibility service is always ready. It routes keys, grabs frames and hosts every overlay in Compose. Studio, Library, Settings and first run are ordinary activities. Recording runs in its own foreground service.</p>
+  </div>
+  <figure class="fig">
+    <div class="fig-scroll">
+    <svg class="arch" viewBox="0 0 1000 500" role="img" aria-label="StudioSnap architecture. Keys reach the key router in the accessibility service; the launcher entry, Quick Settings tile and shortcuts open the overlay host directly. The capture engine feeds the overlay host, which writes to the clipboard and Pictures, opens Studio and Library windows backed by the history database, and starts the recorder foreground service. Picker mode uses a one-shot MediaProjection when accessibility is off.">
+      <defs><marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="af"/></marker></defs>
+      <text x="20" y="28" class="gl">WAYS IN</text>
+      <rect x="20" y="42" width="180" height="44" rx="8" class="own"/><text x="110" y="61" class="t">Keys</text><text x="110" y="77" class="s">Screenshot · Action+Shift+S</text>
+      <rect x="20" y="100" width="180" height="44" rx="8" class="bx"/><text x="110" y="119" class="t">StudioSnap Capture</text><text x="110" y="135" class="s">launcher · taskbar</text>
+      <rect x="20" y="158" width="180" height="44" rx="8" class="bx"/><text x="110" y="177" class="t">Tile · shortcuts</text><text x="110" y="193" class="s">Quick Settings</text>
+      <rect x="248" y="30" width="372" height="286" rx="14" class="grp"/><text x="264" y="50" class="gl">STUDIOSNAP SERVICE (ACCESSIBILITY)</text>
+      <rect x="272" y="64" width="324" height="48" rx="8" class="own"/><text x="434" y="83" class="t">Key router</text><text x="434" y="100" class="s">consumes shortcuts, answers in microseconds</text>
+      <rect x="272" y="128" width="324" height="48" rx="8" class="own"/><text x="434" y="147" class="t">Capture engine</text><text x="434" y="164" class="s">screen 7–16 ms · window 4–8 ms · nodes · scroll</text>
+      <rect x="272" y="192" width="324" height="48" rx="8" class="own"/><text x="434" y="211" class="t">Overlay host (Compose)</text><text x="434" y="228" class="s">bar · selection · cards · pins · text · HUD</text>
+      <rect x="272" y="256" width="324" height="42" rx="8" class="bx"/><text x="434" y="282" class="t">Text engine: node text → OCR · QR</text>
+      <text x="676" y="28" class="gl">OUTPUT AND WINDOWS</text>
+      <rect x="676" y="42" width="304" height="48" rx="8" class="bx"/><text x="828" y="61" class="t">Clipboard · Pictures/StudioSnap</text><text x="828" y="78" class="s">share sheet · drag out · Lens · Gemini</text>
+      <rect x="676" y="114" width="304" height="48" rx="8" class="bx"/><text x="828" y="133" class="t">Studio · Library · Settings</text><text x="828" y="150" class="s">activities, opened on demand</text>
+      <rect x="676" y="186" width="304" height="48" rx="8" class="bx"/><text x="828" y="205" class="t">History</text><text x="828" y="222" class="s">Room + text index · DataStore</text>
+      <path d="M200 64 H268" class="e" marker-end="url(#aa)"/><text x="234" y="57" class="l">key</text>
+      <path d="M200 122 H234 V216 H268" class="e" marker-end="url(#aa)"/><path d="M200 180 H234" class="e"/><text x="228" y="238" class="l">open</text>
+      <path d="M434 112 V126" class="e" marker-end="url(#aa)"/>
+      <path d="M434 176 V190" class="e" marker-end="url(#aa)"/>
+      <path d="M596 216 H636 V66 H672" class="e" marker-end="url(#aa)"/><text x="652" y="100" class="l">copy</text>
+      <path d="M636 138 H672" class="e" marker-end="url(#aa)"/><text x="652" y="132" class="l">edit</text>
+      <path d="M828 162 V184" class="e" marker-end="url(#aa)"/>
+      <text x="20" y="356" class="gl">RECORDING (FOREGROUND SERVICE)</text>
+      <rect x="20" y="370" width="196" height="48" rx="8" class="sys"/><text x="118" y="389" class="t">Android share picker</text><text x="118" y="406" class="s">once per session, or adb app-op</text>
+      <rect x="248" y="370" width="180" height="48" rx="8" class="own"/><text x="338" y="389" class="t">VirtualDisplay</text><text x="338" y="406" class="s">frames, cropped to the area</text>
+      <rect x="460" y="370" width="180" height="48" rx="8" class="own"/><text x="550" y="389" class="t">MediaCodec → MP4</text><text x="550" y="406" class="s">H.264 · mic + device audio</text>
+      <rect x="672" y="370" width="308" height="48" rx="8" class="bx"/><text x="826" y="389" class="t">Trim · GIF · WebP</text><text x="826" y="406" class="s">Media3 · Kotlin GIF encoder</text>
+      <path d="M216 394 H244" class="e" marker-end="url(#aa)"/><path d="M428 394 H456" class="e" marker-end="url(#aa)"/><path d="M640 394 H668" class="e" marker-end="url(#aa)"/>
+      <path d="M434 298 V332 H118 V366" class="e" marker-end="url(#aa)"/><text x="360" y="326" class="l">Record</text>
+      <text x="20" y="454" class="gl">PICKER MODE (NO ACCESSIBILITY)</text>
+      <rect x="20" y="466" width="500" height="28" rx="8" class="sys"/><text x="270" y="485" class="s">one-shot MediaProjection → crop inside StudioSnap → same result card and Studio</text>
+    </svg>
+    </div>
+    <figcaption>Coral boxes are StudioSnap code, blue boxes are Android system UI. The service answers every key press immediately and does heavy work on other threads, because Android waits up to 500 ms on it for each key.</figcaption>
+  </figure>
+  <div class="tbl"><table>
+    <thead><tr><th>Part</th><th>Choice</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Language and UI</td><td>Kotlin 2.4, Jetpack Compose (BOM 2026.09.00, Material 3 1.4.0)</td><td>Same toolchain as HelloBook, which already builds on the VM. Our own floating bar, not an alpha library.</td></tr>
+      <tr><td>Build</td><td>Gradle 9.8, AGP 9.4.1, minSdk 34, target 37</td><td>API 34 brings single-window capture; 37 brings the picker presets and pinned windows.</td></tr>
+      <tr><td>Overlays</td><td>ComposeView in <code>TYPE_ACCESSIBILITY_OVERLAY</code> windows</td><td>Above the taskbar; tested full-screen on your device.</td></tr>
+      <tr><td>Ink</td><td>androidx.ink 1.0</td><td>Low-latency pen and highlighter, Apache-2.0.</td></tr>
+      <tr><td>Video</td><td>MediaCodec + Media3 1.11 (Transformer, Muxer)</td><td>Hardware encoding, trim and crop, Apache-2.0.</td></tr>
+      <tr><td>GIF and WebP</td><td>Our own Kotlin GIF encoder, APNG4Android WebP encoder</td><td>No native code to build on the VM; permissive licences.</td></tr>
+      <tr><td>Text</td><td>Accessibility node text, then Tesseract4Android OCR; zxing-cpp for QR</td><td>Fully open source. ML Kit optional later.</td></tr>
+      <tr><td>Data and images</td><td>Room + full-text index, DataStore, Coil 3, telephoto</td><td>Search history; re-editable layers; zoom into tall stitches.</td></tr>
+      <tr><td>Permissions</td><td>Accessibility, FGS media projection, mic and camera (when used), notifications, pinned windowing. <b>No INTERNET.</b></td><td>Uploads, if wanted later, come as a separate companion app.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="cols">
+    <div class="card-p"><h3>How I test</h3><ul class="clean"><li>On your HP Googlebook over adb, with a <code>./ss</code> helper like the other Book projects</li><li>Hotkeys through a virtual keyboard (<code>uinput</code>), the same path as real keys; never types into your windows</li><li>Visual checks capture only StudioSnap's own overlays, never your apps</li><li>Unit tests for the annotation model, stitcher, GIF encoder and naming; CI on GitHub Actions with the x86_64 emulator, never on the VM</li></ul></div>
+    <div class="card-p"><h3>Speed targets</h3><ul class="clean"><li>Key press to visible bar: under 100 ms</li><li>Release to image on clipboard: under 350 ms at full screen</li><li>Window capture: under 50 ms</li><li>Studio open: under 500 ms</li><li>Scrolling: about 3 frames a second, the Android limit</li></ul></div>
+  </div>
+</section>
+<section id="phases">
+  <div class="head">
+    <p class="eyebrow">Build phases</p>
+    <h2>Six phases, each usable on its own</h2>
+    <p>Each phase ends with a build installed on your Googlebook and a short checklist for you. Estimates are calendar time with me building and you testing.</p>
+  </div>
+  <div class="timeline" aria-hidden="true"><span style="flex:.5">0 · Base</span><span style="flex:1.5">1 · Snap</span><span style="flex:2">2 · Studio</span><span style="flex:2">3 · Text + scroll</span><span style="flex:2">4 · Record</span><span style="flex:1">5 · Ship</span></div>
+  <div class="phases">
+    <div class="phase"><div class="when"><span>Phase 0</span><b>2–3 days</b></div><h3>Foundations</h3><ul><li>Repo <code>~/studiosnap</code>, private GitHub repo, MIT, CLAUDE.md, <code>./ss</code> helper</li><li>Gradle modules, CI with unit tests and the x86_64 emulator smoke test</li><li>Accessibility service, key router, capture engine, overlay host</li><li>Design tokens and the bar component; release key in ~/.config/studiosnap, Drive backup</li></ul><p class="done"><b>Done when</b> the Screenshot key opens an empty bar in under 100 ms on your Googlebook.</p></div>
+    <div class="phase"><div class="when"><span>Phase 1</span><b>~1.5 weeks</b></div><h3>Snap: the bar and core flow</h3><ul><li>The full capture bar: modes, sources, timer, options, position, dodge, collapse, both themes</li><li>Selection layer: freeze, loupe, W × H, window and element snapping, adjust mode</li><li>Auto-copy, auto-save, naming, formats; result cards with drag-out</li><li>Keys with takeover or Shortcut Helper; Capture entry, tile, shortcuts</li><li>First run, Settings v1, Library v1, picker mode v1</li></ul><p class="done"><b>Done when</b> Screenshot key → drag → paste into Gmail takes under 2 s and feels finished.</p></div>
+    <div class="phase"><div class="when"><span>Phase 2</span><b>~2 weeks</b></div><h3>Studio and pins</h3><ul><li>Annotation engine: model, renderer, hit testing, undo, saved as JSON layers</li><li>All tools, Frame panel, crop, zoom and pan, keyboard shortcuts</li><li>Pins with opacity and click-through</li><li>Quick markup on the selection</li></ul><p class="done"><b>Done when</b> an arrow, two step numbers, a redaction and a frame take under 30 s and reopen editable.</p></div>
+    <div class="phase"><div class="when"><span>Phase 3</span><b>~2 weeks</b></div><h3>Text and long captures</h3><ul><li>Text mode with node text and OCR, QR, links and emails as actions</li><li>Lens, Gemini and NotebookLM hand-off</li><li>Scrolling capture: auto, manual, sticky-header removal, seam review</li><li>Colour picker and ruler; library search by text</li></ul><p class="done"><b>Done when</b> a long article and a long chat both stitch without visible seams.</p></div>
+    <div class="phase"><div class="when"><span>Phase 4</span><b>~2 weeks</b></div><h3>Recording</h3><ul><li>Screen, window or area to MP4 up to 60 fps, with mic and device audio</li><li>Countdown, pill, pause, camera bubble, clicks and keys, draw on screen</li><li>Trim; export to GIF and animated WebP</li><li>Picker-free mode through the adb app-op, detected and explained</li></ul><p class="done"><b>Done when</b> a 20 s GIF of normal UI work stays under 3 MB.</p></div>
+    <div class="phase"><div class="when"><span>Phase 5</span><b>~1 week</b></div><h3>Share and release</h3><ul><li>Workflows per shortcut; an intent API for other apps</li><li>README with install steps, licences screen, signed GitHub releases with checksums</li><li>Public-readiness scan; note for 2027 developer registration</li><li>Uploads stay out of the app; a separate companion later if you want them</li></ul><p class="done"><b>Done when</b> someone can install and set it up from the README alone.</p></div>
+  </div>
+</section>
+
+<section id="risks">
+  <div class="head">
+    <p class="eyebrow">Risks and open checks</p>
+    <h2>What I'll check first</h2>
+  </div>
+  <div class="risks">
+    <div class="risk"><span class="lvl check">Check</span><div><p><b>System clipboard preview.</b> SystemUI has its own clipboard overlay. If it shows when StudioSnap copies, our card has to move clear of it.</p></div></div>
+    <div class="risk"><span class="lvl check">Check</span><div><p><b>Drag out of an overlay window.</b> Android's source allows it; first thing tested in Phase 1.</p><p class="fix">Fallback: drag from the Library window.</p></div></div>
+    <div class="risk"><span class="lvl check">Check</span><div><p><b>Mouse hover and right-click on overlays</b>, and the system font by name (<code>google-sans-flex</code>).</p><p class="fix">Fallbacks exist for both: click-to-grab, and Roboto Flex.</p></div></div>
+    <div class="risk"><span class="lvl med">Medium</span><div><p><b>Key takeover sees all typing.</b> It has to be fast and trustworthy.</p><p class="fix">Handler returns immediately, nothing logged, no network permission, open source, and a no-takeover mode through the Shortcut Helper.</p></div></div>
+    <div class="risk"><span class="lvl med">Medium</span><div><p><b>Sideload setup.</b> A Chrome-downloaded APK needs "Allow restricted settings" before accessibility.</p><p class="fix">An illustrated guide in first run and the README; adb installs skip it on this device.</p></div></div>
+    <div class="risk"><span class="lvl low">Low</span><div><p><b>Intel Googlebooks.</b> Same APIs, untested on x86_64 hardware.</p><p class="fix">x86_64 emulator tests in CI from Phase 0.</p></div></div>
+  </div>
+</section>
+
+<section id="decide" class="dec">
+  <div class="head">
+    <p class="eyebrow">Decisions</p>
+    <h2>What I need from you</h2>
+    <p>Say go and I start Phase 0. The rest have a recommended default; tell me where you want something different.</p>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Decision</th><th>Recommended</th><th>Other option</th></tr></thead>
+    <tbody>
+      <tr><td><b>Go ahead</b></td><td>Start Phase 0 now</td><td>Change the plan first</td></tr>
+      <tr><td>Bar position</td><td>Bottom center, above the taskbar; dodges to the top when needed</td><td>Top center, under the status bar</td></tr>
+      <tr><td>Screenshot key</td><td>Take over the Screenshot key, PrtSc, Action+S and Action+Ctrl+S (switch off any time)</td><td>Keep the system keys; use Action+Shift+S</td></tr>
+      <tr><td>Package name</td><td><code>io.github.kuscher.studiosnap</code>, a name you control for 2027 registration</td><td><code>local.studiosnap</code>, like the Book apps</td></tr>
+      <tr><td>Overlay look</td><td>Neutral frosted HUD with coral accent; Studio and Library follow wallpaper colours</td><td>Wallpaper colours everywhere</td></tr>
+      <tr><td>OCR</td><td>Accessibility text, then Tesseract: fully open source</td><td>Google ML Kit: better on blurry text, proprietary, sends usage metrics</td></tr>
+      <tr><td>Repo and licence</td><td>Private <code>kuscher/studiosnap</code>, MIT, no keys in git; you make it public</td><td>Public from day one</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<footer>StudioSnap plan, 27 September 2026. Based on the <a href="https://claude.ai/artifact/UPg6nU8BeVDgCianp9U8pR">feasibility study</a> and tests on the HP Googlebook 14 (SDK 37.1). Toolbar states are rendered live; the mockups use sample content.</footer>
+</div>
+
+<script>
+(() => {
+  const bar = o => {
+    const rec = o.mode === 'rec';
+    const I = n => `<span class="ms">${n}</span>`;
+    const B = (ic, tip, on, lbl) => `<button class="b${on ? ' on' : ''}" tabindex="-1" data-tip="${tip}">${I(ic)}${lbl ? `<span>${lbl}</span>` : ''}</button>`;
+    if (o.collapsed) return `<button class="b grip" tabindex="-1">${I('drag_indicator')}</button>${B(rec ? 'videocam' : 'photo_camera', rec ? 'Recording' : 'Screenshot', true)}<button class="b primary${rec ? ' rec' : ''}" tabindex="-1">${I(rec ? 'fiber_manual_record' : 'photo_camera')}<span>${rec ? 'Record' : 'Capture'}</span></button><button class="b" tabindex="-1" data-tip="Expand">${I('chevron_right')}</button>`;
+    const srcs = rec ? [['screen', 'fullscreen', 'Screen'], ['window', 'select_window', 'Window'], ['area', 'screenshot_region', 'Area']] : [['area', 'screenshot_region', 'Area'], ['window', 'select_window', 'Window'], ['screen', 'fullscreen', 'Screen'], ['scroll', 'swipe_vertical', 'Scroll'], ['text', 'text_fields', 'Text']];
+    let prim;
+    const pco = o.co ? ' data-co="6"' : '';
+    if (o.count) prim = `<button class="b primary"${pco} tabindex="-1" disabled><span class="cd">${o.count}</span></button>`;
+    else prim = `<button class="b primary${rec ? ' rec' : ''}"${pco} tabindex="-1" data-tip="${rec ? 'Start recording' : 'Capture'} · Enter">${I(rec ? 'fiber_manual_record' : (o.src === 'text' ? 'content_copy' : 'photo_camera'))}<span>${rec ? 'Record' : (o.src === 'text' ? 'Copy text' : 'Capture')}</span></button>`;
+    const co = n => o.co ? ` data-co="${n}"` : '';
+    return `<button class="b grip"${co(1)} tabindex="-1" data-tip="Drag to move">${I('drag_indicator')}</button>
+      <div class="seg"${co(2)}>${B('photo_camera', 'Screenshot', !rec, !rec ? 'Screenshot' : '')}${B('videocam', 'Record · R', rec, rec ? 'Record' : '')}</div><span class="div"></span>
+      <div class="seg"${co(3)} style="background:transparent;padding:0">${srcs.map(([id, ic, l]) => `<button class="b${o.src === id ? ' on' : ''}" tabindex="-1" data-tip="${l}">${I(ic)}${o.src === id ? `<span>${l}</span>` : ''}</button>`).join('')}</div><span class="div"></span>
+      <button class="b${o.timer ? ' on' : ''}"${co(4)} tabindex="-1" data-tip="Timer · 0">${I('timer')}${o.timer ? `<span class="badge">${o.timer}s</span>` : ''}</button>
+      ${rec ? B('mic', 'Microphone', true) + B('face', 'Camera', o.cam) : ''}
+      <button class="b" tabindex="-1" data-tip="Options · O">${I('tune')}</button>
+      ${!rec ? `<button class="b"${co(5)} tabindex="-1" data-tip="Last area · L">${I('history')}</button>` : ''}
+      ${prim}
+      <button class="b" tabindex="-1" data-tip="Collapse">${I('chevron_left')}</button>
+      <button class="b"${co(7)} tabindex="-1" data-tip="Close · Esc">${I('close')}</button>`;
+  };
+  const hud = o => { const I = n => `<span class="ms">${n}</span>`; return `<span class="dot"></span><span class="tm">${o.time}</span><button class="b" tabindex="-1" data-tip="Pause">${I('pause')}</button><button class="b stop" tabindex="-1" data-tip="Stop">${I('stop')}Stop</button><span class="div"></span><button class="b on" tabindex="-1" data-tip="Microphone">${I('mic')}</button><button class="b${o.cam ? ' on' : ''}" tabindex="-1" data-tip="Camera">${I('face')}</button><button class="b" tabindex="-1" data-tip="Draw">${I('draw')}</button>`; };
+  const specs = [
+    { title: 'Screenshot · Area', note: 'the default; only the active mode and source show labels', hud: 'light', o: { mode: 'shot', src: 'area' } },
+    { title: 'Screenshot · Window, 3 s timer', note: 'dark HUD; the timer badge shows on its button', hud: 'dark', dark: 1, o: { mode: 'shot', src: 'window', timer: 3 } },
+    { title: 'Record · Screen', note: 'mic and camera appear; Capture becomes a red Record', hud: 'light', o: { mode: 'rec', src: 'screen', cam: 1 } },
+    { title: 'Countdown running', note: 'the primary button counts down with the on-screen numbers', hud: 'light', o: { mode: 'shot', src: 'area', timer: 3, count: 2 } },
+    { title: 'Collapsed', note: 'for narrow screens or people who know the keys', hud: 'dark', dark: 1, o: { mode: 'shot', src: 'area', collapsed: 1 } },
+    { title: 'Recording pill', note: 'replaces the whole bar while recording', hud: 'dark', dark: 1, pill: 1, o: { time: '00:42', cam: 1 } },
+    { title: 'Vibrant style', note: 'Material 3 Expressive vibrant toolbar, offered as an option', hud: 'light', style: 'vibrant', o: { mode: 'shot', src: 'text' } }
+  ];
+  const host = document.getElementById('specs');
+  const render = theme => {
+    host.innerHTML = '';
+    for (const s of specs) {
+      const row = document.createElement('div'); row.className = 'spec-row';
+      const st = document.createElement('div'); st.className = 'spec ss' + (s.dark && theme !== 'light' || (s.dark && theme === 'dark') ? ' d' : (s.dark ? ' d' : ''));
+      st.dataset.hud = s.style ? 'light' : (s.dark ? 'dark' : theme);
+      if (s.dark) st.classList.add('d');
+      if (s.style) st.dataset.style = s.style;
+      const el = document.createElement('div'); el.className = s.pill ? 'hudpill' : 'bar';
+      el.innerHTML = s.pill ? hud(s.o) : bar(s.o);
+      st.appendChild(el);
+      row.appendChild(st);
+      const cap = document.createElement('div'); cap.className = 'spec-cap';
+      cap.innerHTML = `<span><b>${s.title}</b> · ${s.note}</span><span class="mono">${st.dataset.hud}${s.style ? ' · ' + s.style : ''}</span>`;
+      const wrap = document.createElement('div'); wrap.appendChild(row); wrap.appendChild(cap);
+      host.appendChild(wrap);
+    }
+  };
+  render('light');
+  document.querySelectorAll('[data-theme-btn]').forEach(b => b.addEventListener('click', () => {
+    const t = b.dataset.themeBtn;
+    document.querySelectorAll('[data-theme-btn]').forEach(x => x.setAttribute('aria-pressed', x === b));
+    document.querySelectorAll('.ss[data-hud]').forEach(el => { if (!el.classList.contains('spec') && !el.closest('.spec')) el.dataset.hud = t; });
+    render(t);
+  }));
+})();
+</script>
