@@ -20,14 +20,15 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 
 /**
- * Hosts a Compose UI in a TYPE_ACCESSIBILITY_OVERLAY window. These windows sit above apps, the
- * status bar and the taskbar (verified on the Googlebook). The host provides its own lifecycle,
- * saved-state and viewmodel owners so Compose can run outside an Activity.
+ * Hosts a Compose UI in a TYPE_ACCESSIBILITY_OVERLAY window (above apps, status bar and taskbar).
+ * Provides its own lifecycle / saved-state / viewmodel owners so Compose runs outside an Activity.
  */
 class ComposeOverlay(
     private val context: Context,
-    private val fullScreen: Boolean = true,
-    private val blurBehind: Boolean = true,
+    private val widthSpec: Int = WindowManager.LayoutParams.MATCH_PARENT,
+    private val heightSpec: Int = WindowManager.LayoutParams.MATCH_PARENT,
+    private val gravity: Int = Gravity.TOP or Gravity.START,
+    private val blurRadius: Int = 0,
 ) : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
 
     private val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -44,34 +45,23 @@ class ComposeOverlay(
     val params: WindowManager.LayoutParams = WindowManager.LayoutParams().apply {
         type = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
         format = PixelFormat.TRANSLUCENT
-        // Touchable (so the UI works) but not focusable, so it never steals IME focus; the
-        // accessibility service still receives every key through onKeyEvent.
+        width = widthSpec
+        height = heightSpec
+        this.gravity = gravity
         flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
-        if (fullScreen) {
-            width = WindowManager.LayoutParams.MATCH_PARENT
-            height = WindowManager.LayoutParams.MATCH_PARENT
-            gravity = Gravity.TOP or Gravity.START
-        } else {
-            width = WindowManager.LayoutParams.WRAP_CONTENT
-            height = WindowManager.LayoutParams.WRAP_CONTENT
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-        }
         layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-    }.also { p ->
-        if (blurBehind && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            p.flags = p.flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
-            p.blurBehindRadius = if (fullScreen) 0 else 24
+        if (blurRadius > 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            flags = flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
+            blurBehindRadius = blurRadius
         }
     }
 
     fun show(content: @Composable () -> Unit) {
-        if (shown) {
-            view?.setContent(content)
-            return
-        }
+        val existing = view
+        if (shown && existing != null) { existing.setContent(content); return }
         val cv = ComposeView(context).apply {
             setViewTreeLifecycleOwner(this@ComposeOverlay)
             setViewTreeViewModelStoreOwner(this@ComposeOverlay)
@@ -82,11 +72,6 @@ class ComposeOverlay(
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED
         wm.addView(cv, params)
         shown = true
-    }
-
-    /** Re-apply layout params (e.g. after toggling blur or focusability). */
-    fun update() {
-        view?.let { runCatching { wm.updateViewLayout(it, params) } }
     }
 
     fun dismiss() {

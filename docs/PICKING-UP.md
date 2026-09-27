@@ -10,7 +10,7 @@ and how to continue. **Keep it current at every milestone**, and always `git pus
   `studiosnap`, `googlebook-capture-apis`.
 - Build/adb env: `~/.config/vscodebook/android.env`. Helper: `./ss` (see CLAUDE.md).
 
-## Status — Phase 0 (foundations) COMPLETE
+## Status — Phase 1a (core capture loop) COMPLETE; Phase 0 done
 Verified on the HP Googlebook 14 (SDK 37.1) on 2026-09-27:
 - Project builds: Gradle 9.8 / AGP 9.4.1 (built-in Kotlin) / JDK 21 / Compose BOM 2026.09.00,
   minSdk 34 target 37, package `io.github.kuscher.studiosnap`.
@@ -23,8 +23,16 @@ Verified on the HP Googlebook 14 (SDK 37.1) on 2026-09-27:
 - What the bar does so far: switch mode (Screenshot/Record) and source (Area/Window/Screen/
   Scroll/Text), toggle timer, collapse, close. **Capture/record actions are stubs** (log + close).
 
-## Next — Phase 1 (Snap: the bar + core flow)
-Build the real capture pipeline behind the bar:
+## Phase 1a verified on device (2026-09-27, safe synthetic test frame)
+- Freeze backdrop + selection layer: dim-outside, white box, exact W×H pill, coordinate-accurate.
+- Area drag-select -> crop -> clipboard (image/png confirmed) + save to Pictures/StudioSnap
+  (file confirmed) -> result card (thumbnail + Copy/Annotate/Close + Copied/Saved chips).
+- Window (tap-to-grab) and full-screen paths wired (crop from frozen frame).
+- Test harness: `./ss debug opentest` (synthetic frame), `debug sel a b w h`, `debug grab a b w h`,
+  `./ss shot <tag>` (overlay-only). Real path: `./ss run` then drag; `./ss key`.
+
+## Next — Phase 1b/1c (polish + settings)
+Remaining Phase 1 work:
 1. Capture engine: `takeScreenshot` (full/area-crop) and `takeScreenshotOfWindow`; ~333 ms limit.
 2. Selection layer in the full-screen overlay: freeze frame, dim outside, crosshair + loupe, W×H
    pill, window/element snapping (from `getWindowsOnAllDisplays` + node bounds), adjust handles,
