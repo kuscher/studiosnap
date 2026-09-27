@@ -100,12 +100,14 @@ fun SelectionLayer(session: CaptureSession, adjustBeforeCapture: Boolean) {
                 hover != null -> {
                     drawDimAround(hover.rect, size.width, size.height, Scrim)
                     val r = hover.rect
-                    val effect = if (hover.isElement) PathEffect.dashPathEffect(floatArrayOf(10f, 7f)) else null
-                    drawRoundRect(
-                        Accent, topLeft = r.topLeft, size = Size(r.width, r.height),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(if (hover.isElement) 6f else 12f),
-                        style = Stroke(width = if (hover.isElement) 2.5f else 3f, pathEffect = effect),
-                    )
+                    // Round the highlight to follow the UI. Nodes only expose a bounding box, so
+                    // approximate the corner: small controls round toward a pill, large containers
+                    // stay gently rounded.
+                    val radius = if (hover.isElement) minOf(r.height / 2f, r.width / 2f, 22f) else 16f
+                    val cr = androidx.compose.ui.geometry.CornerRadius(radius, radius)
+                    val sz = Size(r.width, r.height)
+                    drawRoundRect(Accent.copy(alpha = 0.10f), topLeft = r.topLeft, size = sz, cornerRadius = cr)
+                    drawRoundRect(Accent, topLeft = r.topLeft, size = sz, cornerRadius = cr, style = Stroke(width = if (hover.isElement) 2.5f else 3f))
                 }
                 areaAim -> {
                     drawRect(ScrimLight, size = size)

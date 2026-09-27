@@ -326,6 +326,17 @@ class SnapService : AccessibilityService() {
         }
     }
 
+    fun debugHover(a: Int, b: Int, w: Int, h: Int, element: Boolean) {
+        session?.let {
+            it.phase = io.github.kuscher.studiosnap.capture.SelPhase.AIM
+            it.selection = null
+            it.hover = io.github.kuscher.studiosnap.capture.Hover(
+                Rect(a.toFloat(), b.toFloat(), (a + w).toFloat(), (b + h).toFloat()),
+                if (element) "Download GPX" else "Window · Field Notes", element, 0,
+            )
+        }
+    }
+
     fun debugAim(x: Int, y: Int) {
         session?.let {
             it.changeSource(Source.AREA)
