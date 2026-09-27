@@ -14,12 +14,14 @@ import android.view.Gravity
 import android.view.KeyEvent
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.asImageBitmap
 import io.github.kuscher.studiosnap.capture.CaptureKind
 import io.github.kuscher.studiosnap.capture.CaptureSession
+import io.github.kuscher.studiosnap.capture.ElementInfo
 import io.github.kuscher.studiosnap.capture.Output
 import io.github.kuscher.studiosnap.capture.WinInfo
 import io.github.kuscher.studiosnap.ui.CaptureMode
@@ -128,6 +130,43 @@ class SnapService : AccessibilityService() {
         return out
     }
 
+    /** UI-element rectangles inside one window, for element snapping in Area mode. */
+    fun elementsIn(winId: Int): List<ElementInfo> {
+        val all = windowsOnAllDisplays
+        var target: AccessibilityWindowInfo? = null
+        loop@ for (i in 0 until all.size()) for (w in all.valueAt(i)) if (w.id == winId) { target = w; break@loop }
+        val root = target?.root ?: return emptyList()
+        val out = ArrayList<ElementInfo>()
+        val q = ArrayDeque<AccessibilityNodeInfo>(); q.add(root)
+        val r = android.graphics.Rect(); var n = 0
+        while (q.isNotEmpty() && n < 4000) {
+            val node = q.removeFirst(); n++
+            node.getBoundsInScreen(r)
+            if (node.isVisibleToUser && r.width() > 8 && r.height() > 8) {
+                val label = node.text?.toString()?.takeIf { it.isNotBlank() }
+                    ?: node.contentDescription?.toString()?.takeIf { it.isNotBlank() }
+                    ?: node.viewIdResourceName?.substringAfterLast('/')
+                    ?: node.className?.toString()?.substringAfterLast('.')
+                    ?: "Element"
+                out.add(ElementInfo(Rect(r.left.toFloat(), r.top.toFloat(), r.right.toFloat(), r.bottom.toFloat()), label))
+            }
+            for (c in 0 until node.childCount) node.getChild(c)?.let { q.add(it) }
+        }
+        return out
+    }
+
+    /** Captures one window's own surface (clean, no overlaps, no caption). */
+    fun captureWindow(winId: Int, cb: (Bitmap?) -> Unit) {
+        takeScreenshotOfWindow(winId, mainExecutor, object : TakeScreenshotCallback {
+            override fun onSuccess(result: ScreenshotResult) {
+                val hb = result.hardwareBuffer
+                val bmp = Bitmap.wrapHardwareBuffer(hb, result.colorSpace)?.copy(Bitmap.Config.ARGB_8888, false)
+                hb.close(); cb(bmp)
+            }
+            override fun onFailure(code: Int) { Log.w(TAG, "window shot fail=$code"); cb(null) }
+        })
+    }
+
     // ---- overlay control ----
 
     /** [dry] = don't freeze the screen (transparent backdrop); used only for visual checks so an
@@ -136,7 +175,7 @@ class SnapService : AccessibilityService() {
         if (barShown()) return
         val t0 = SystemClock.elapsedRealtime()
         val present = { bmp: Bitmap? ->
-            val s = CaptureSession(this, ::listWindows, ::onResult, ::dismissCapture)
+            val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::dismissCapture)
             session = s
             s.onFrozen(bmp, initialSource)
             val ov = captureOverlay ?: ComposeOverlay(this).also { captureOverlay = it }
@@ -200,7 +239,7 @@ class SnapService : AccessibilityService() {
 
     fun openBarTest() {
         if (barShown()) return
-        val s = CaptureSession(this, ::listWindows, ::onResult, ::dismissCapture)
+        val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::dismissCapture)
         session = s
         s.onFrozen(testBitmap(), Source.AREA)
         val ov = captureOverlay ?: ComposeOverlay(this).also { captureOverlay = it }
@@ -214,6 +253,15 @@ class SnapService : AccessibilityService() {
 
     fun debugGrab(a: Int, b: Int, w: Int, h: Int) {
         session?.captureArea(Rect(a.toFloat(), b.toFloat(), (a + w).toFloat(), (b + h).toFloat()), CaptureKind.AREA)
+    }
+
+    fun debugAim(x: Int, y: Int) {
+        session?.let {
+            it.changeSource(Source.AREA)
+            it.selection = null; it.hover = null
+            it.phase = io.github.kuscher.studiosnap.capture.SelPhase.AIM
+            it.pointer = androidx.compose.ui.geometry.Offset(x.toFloat(), y.toFloat())
+        }
     }
 
     private fun testBitmap(): Bitmap {

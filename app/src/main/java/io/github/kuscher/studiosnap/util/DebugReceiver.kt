@@ -26,6 +26,7 @@ class DebugReceiver : BroadcastReceiver() {
             "opentest" -> svc?.openBarTest()
             "sel" -> svc?.debugSelect(i(args, 1), i(args, 2), i(args, 3), i(args, 4))
             "grab" -> svc?.debugGrab(i(args, 1), i(args, 2), i(args, 3), i(args, 4))
+            "aim" -> svc?.debugAim(i(args, 1), i(args, 2))
             else -> Log.w(SnapService.TAG, "unknown debug command")
         }
     }
