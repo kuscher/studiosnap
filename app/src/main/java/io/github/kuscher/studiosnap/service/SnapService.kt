@@ -277,11 +277,12 @@ class SnapService : AccessibilityService() {
         session?.captureArea(Rect(a.toFloat(), b.toFloat(), (a + w).toFloat(), (b + h).toFloat()), CaptureKind.AREA)
     }
 
-    fun debugStudio() {
+    fun debugStudio(demo: Boolean = false) {
         val f = java.io.File(cacheDir, "captures").listFiles()?.maxByOrNull { it.lastModified() } ?: return
         startActivity(
             android.content.Intent(this, io.github.kuscher.studiosnap.StudioActivity::class.java)
                 .putExtra(io.github.kuscher.studiosnap.StudioActivity.EXTRA_PATH, f.absolutePath)
+                .putExtra(io.github.kuscher.studiosnap.StudioActivity.EXTRA_DEMO, demo)
                 .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
         )
     }

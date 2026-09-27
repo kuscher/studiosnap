@@ -29,7 +29,7 @@ class DebugReceiver : BroadcastReceiver() {
             "aim" -> svc?.debugAim(i(args, 1), i(args, 2))
             "hoverel" -> svc?.debugHover(i(args, 1), i(args, 2), i(args, 3), i(args, 4), true)
             "hoverwin" -> svc?.debugHover(i(args, 1), i(args, 2), i(args, 3), i(args, 4), false)
-            "studio" -> svc?.debugStudio()
+            "studio" -> svc?.debugStudio(args.getOrNull(1) == "demo")
             "shotwin" -> svc?.debugShotWindow(args.getOrNull(1) ?: "studiosnap", args.getOrNull(2) ?: "win")
             "text" -> svc?.debugText(i(args, 1), i(args, 2), i(args, 3), i(args, 4))
             "rec" -> svc?.debugRecord()

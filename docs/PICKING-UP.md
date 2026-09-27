@@ -48,7 +48,7 @@ Verified on the HP Googlebook 14 (SDK 37.1) on 2026-09-27:
 ## Deferred within Phase 1/2 (do when convenient)
 Phase 1c: DataStore settings, first-run, Library grid, picker-mode fallback, card drag-out,
 timer countdown, adjust-handles + arrow-key nudge.
-Phase 2b/2c: text + crop + select/move tools, Frame/beautify panel, layers panel, auto-redact.
+Phase 2b/2c: DONE (text/crop/select-move tools, Frame/beautify panel w/ live preview, Layers panel). Auto-redact still deferred (needs OCR on the flattened image).
 
 ## Phase 3 text capture verified on device (2026-09-27)
 - Text source extracts EXACT text from accessibility nodes in the region (topmost overlapping
@@ -76,8 +76,7 @@ Phase 2b/2c: text + crop + select/move tools, Frame/beautify panel, layers panel
   GitHub release v0.1 has the APK. **Back up the keystore privately; store the password in the pw
   manager** (still TODO).
 
-## Next — user to try 0.1; then 4b (audio/pause/region/GIF, exclude pill), 2b/2c editor,
-## scrolling capture, first-run onboarding, picker-mode auto-detect.
+## Next — scrolling capture, first-run onboarding, then 0.2 release. (4b recording polish paused per user.)
 Remaining Phase 1 work:
 1. Capture engine: `takeScreenshot` (full/area-crop) and `takeScreenshotOfWindow`; ~333 ms limit.
 2. Selection layer in the full-screen overlay: freeze frame, dim outside, crosshair + loupe, W×H
