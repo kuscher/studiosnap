@@ -116,6 +116,8 @@ object Sym {
     const val VIDEOCAM = "\ue04b"  // videocam
     const val VISIBILITY = "\ue8f4"  // visibility
     const val VISIBILITY_OFF = "\ue8f5"  // visibility_off
+    const val VOLUME_OFF = "\ue04f"  // volume_off
+    const val VOLUME_UP = "\ue050"  // volume_up
     const val WARNING = "\uf083"  // warning
     const val WIFI_OFF = "\ue648"  // wifi_off
     const val WRAP_TEXT = "\ue25b"  // wrap_text
