@@ -180,6 +180,15 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
   (880 Hz → 830 Hz measured, mixed with room sound), off (no audio track, unchanged), revoked+denied
   (video only). Audio vs video start offset within ±26 ms. Debug: `recopt`, `tone`, `recinfo`.
 - Known limit: with both on and no headphones, the speakers echo into the mic.
+- Review hardening (external code review, same day): the recording pill's window is pill-sized
+  at the top center (the old full-screen overlay took every touch while recording); the
+  notification has a Stop action; one recording at a time (UI + service guard); `Mp4Writer`
+  contains muxer errors, treats video as the required track (a sleeping screen sends no frames,
+  so early audio waits or drops) and starts without audio if audio is seconds late; the video
+  drain always reports done and gives up 3 s after Stop without end-of-stream; a failed save or
+  muxer stop is reported as a failure, not "saved"; a permission answer is parked in
+  `SnapService.pendingPermission` and applied on reconnect, and a reconnect mid-recording
+  restores the pill. `PermissionActivity` must NOT be `noHistory` (no result callbacks).
 
 ## Next — republish release w/ these fixes when user OKs; polish (scroll progress HUD, home desktop layout) + 4b recording (paused).
 Remaining Phase 1 work:
