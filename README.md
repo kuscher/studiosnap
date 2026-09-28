@@ -11,6 +11,10 @@ It's **copied, saved, and ready to annotate** the instant you let go — and not
 ![Platform](https://img.shields.io/badge/platform-Googlebook%20OS%20(Android%2017)-success)
 ![No internet](https://img.shields.io/badge/network-none-critical)
 
+<a href="../../releases/latest/download/StudioSnap.apk"><b>⬇ Download StudioSnap.apk</b></a>
+&nbsp;·&nbsp; <a href="#get-it">How to install</a>
+&nbsp;·&nbsp; <a href="#privacy">Privacy</a>
+
 <img src="docs/screenshots/bar.png" width="760" alt="The StudioSnap floating capture bar">
 
 </div>
@@ -49,10 +53,20 @@ Annotate, blur the sensitive bits, drop numbered steps, then wrap it all in a co
 
 ## Get it
 
-1. Download the latest **`StudioSnap-*.apk`** from the [**Releases**](https://github.com/kuscher/studiosnap/releases) page.
-2. Open it from **Files** and allow the install.
-3. Launch StudioSnap and follow the one-time setup to turn it on in **Settings → Accessibility** — that's how it watches for the Screenshot key and grabs the screen. (It only listens for the hotkey; it never logs your keystrokes.)
-4. Press the **Screenshot key** — or **Action + Shift + S** — anywhere to capture. 🎉
+StudioSnap is made for Googlebooks (Googlebook OS, Android 17).
+
+1. On your Googlebook, download **[StudioSnap.apk](../../releases/latest/download/StudioSnap.apk)** from the latest release.
+2. Open it from Chrome's downloads or the **Files** app. If Android asks, allow Chrome (or Files) to install apps, then tap **Install**.
+3. Open **StudioSnap** and follow the one-time setup — it opens Accessibility settings so StudioSnap can watch for the Screenshot key and grab the screen. (It only listens for the hotkey; it never logs your keystrokes — see [Privacy](#privacy).)
+4. **Because StudioSnap came from a download, Android guards this switch the first time:**
+   1. Tap StudioSnap's switch in Accessibility. Android says *"Restricted setting."* Tap **OK**.
+   2. Open StudioSnap's **App info**, tap **⋮** (top-right) › **Allow restricted settings**, and confirm with your PIN.
+   3. Return to **Accessibility › StudioSnap** and turn it on.
+5. Press the **Screenshot key** — or **Action + Shift + S** — anywhere to capture. 🎉
+
+> **Heads-up:** about a day later Android may show *"Review app with full device access."* That's a standard check for **every** app that uses an accessibility service — keep StudioSnap if you're happy with what it does. It has no internet permission and only reads the screen when you capture.
+
+To update, just install a newer `StudioSnap.apk` over the old one — your settings and captures stay.
 
 ## Using it
 
