@@ -38,6 +38,7 @@ class DebugReceiver : BroadcastReceiver() {
             "recframe" -> svc?.debugRecFrame(args.getOrNull(1) ?: "recframe")
             "scrollcap" -> svc?.debugScroll(args.getOrNull(1) ?: "studiosnap")
             "scrollself" -> svc?.debugScrollSelfTest()
+            "ocr" -> svc?.debugOcr()
             else -> Log.w(SnapService.TAG, "unknown debug command")
         }
     }

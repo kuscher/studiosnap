@@ -40,7 +40,7 @@ class CaptureSession(
     private val getElements: (Int) -> List<ElementInfo> = { emptyList() },
     private val captureWindowBmp: (Int, (Bitmap?) -> Unit) -> Unit = { _, cb -> cb(null) },
     private val onResult: (Bitmap, CaptureKind, String) -> Unit,
-    private val onText: (Rect) -> Unit = {},
+    private val onText: (Bitmap?, Rect) -> Unit = { _, _ -> },
     private val onRecord: () -> Unit = {},
     private val onScroll: (WinInfo) -> Unit = {},
     private val onDismiss: () -> Unit,
@@ -209,7 +209,7 @@ class CaptureSession(
     }
 
     fun captureArea(rect: Rect, kind: CaptureKind) {
-        if (source == Source.TEXT) { onText(rect); finish(); return }
+        if (source == Source.TEXT) { onText(cropFrozen(rect), rect); finish(); return }
         cropFrozen(rect)?.let { onResult(it, kind, if (kind == CaptureKind.ELEMENT) "Element" else "Area") }
         finish()
     }
