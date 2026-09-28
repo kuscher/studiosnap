@@ -12,9 +12,11 @@ ENVF="$HOME/.config/vscodebook/android.env"
 
 serial() { cat "$HOME/.config/vscodebook/adb-serial" 2>/dev/null; }
 connect() {
+  # Redirect stdin from /dev/null: A() calls connect() via $(...), and without this the probe
+  # commands below swallow stdin piped into `A shell ...` (e.g. the uinput JSON in `key`).
   local s; s="$(serial)"
-  if [ -n "$s" ] && adb -s "$s" shell true >/dev/null 2>&1; then echo "$s"; return; fi
-  vscodebook android connect >/dev/null 2>&1 || true
+  if [ -n "$s" ] && adb -s "$s" shell true </dev/null >/dev/null 2>&1; then echo "$s"; return; fi
+  vscodebook android connect </dev/null >/dev/null 2>&1 || true
   serial
 }
 A() { adb -s "$(connect)" "$@"; }
@@ -53,7 +55,7 @@ case "${1:-}" in
     j=/data/local/tmp/ss_key.json
     printf '%s\n' \
       '{"id":1,"command":"register","name":"SS Test Keyboard","vid":6353,"pid":45073,"bus":"usb","configuration":[{"type":100,"data":[0,1]},{"type":101,"data":[99,42,31,125,56,29]}]}' \
-      '{"id":1,"command":"delay","duration":700}' \
+      '{"id":1,"command":"delay","duration":1000}' \
       '{"id":1,"command":"inject","events":[1,99,1,0,0,0]}' \
       '{"id":1,"command":"delay","duration":60}' \
       '{"id":1,"command":"inject","events":[1,99,0,0,0,0]}' \
