@@ -50,6 +50,7 @@ class CaptureSession(
     val recOptions: RecOptions? = null,
     private val onRecToggle: (RecToggle) -> Unit = {},
     private val onModeChange: (CaptureMode) -> Unit = {},
+    private val onSettings: () -> Unit = {},
 ) {
     private val elementCache = HashMap<Int, List<ElementInfo>>()
     var mode by mutableStateOf(CaptureMode.SHOT)
@@ -119,6 +120,9 @@ class CaptureSession(
     }
 
     fun toggleRec(t: RecToggle) = onRecToggle(t)
+
+    /** The bar's Options button: StudioSnap's Settings (the bar closes first). */
+    fun openSettings() = onSettings()
 
     fun changeSource(s: Source) {
         if (mode == CaptureMode.REC && s !in recSources) return

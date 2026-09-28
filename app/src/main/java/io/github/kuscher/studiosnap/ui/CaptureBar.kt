@@ -118,7 +118,7 @@ fun CaptureBar(
         HudButton(Sym.TIMER, "Timer", selected = session.timerSeconds > 0, onClick = {
             session.timerSeconds = when (session.timerSeconds) { 0 -> 3; 3 -> 5; 5 -> 10; else -> 0 }
         })
-        HudButton(Sym.TUNE, "Options", onClick = {})
+        HudButton(Sym.TUNE, "Settings", onClick = { session.openSettings() })
         if (session.mode == CaptureMode.SHOT) HudButton(Sym.HISTORY, "Last area", enabled = false, onClick = {})
         PrimaryButton(session, enabled = session.primaryEnabled, onClick = onPrimary)
         HudButton(Sym.CHEVRON_LEFT, "Collapse", onClick = { session.collapsed = true })

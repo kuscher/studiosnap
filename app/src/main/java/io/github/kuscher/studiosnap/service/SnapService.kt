@@ -325,7 +325,16 @@ class SnapService : AccessibilityService() {
         this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::startRecordFlow, ::startScrollFlow, ::dismissCapture,
         recOptions = recOptions.also { it.reload() }, onRecToggle = ::toggleRec,
         onModeChange = { updateBubble() },
+        onSettings = ::openSettings,
     )
+
+    private fun openSettings() {
+        dismissCapture()
+        startActivity(
+            android.content.Intent(this, io.github.kuscher.studiosnap.SettingsActivity::class.java)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
 
     private fun onResult(bmp: Bitmap, kind: CaptureKind, label: String) {
         val name = Output.defaultName()
