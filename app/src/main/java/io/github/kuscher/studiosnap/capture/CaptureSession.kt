@@ -88,6 +88,12 @@ class CaptureSession(
     private var recordReadyAt = 0L
     private fun recordReady() = android.os.SystemClock.uptimeMillis() >= recordReadyAt
 
+    /** Starts the Record grace period again (the bar just came back from behind a dialog). */
+    fun holdRecord() { recordReadyAt = android.os.SystemClock.uptimeMillis() + RECORD_GRACE_MS }
+
+    /** The frozen screen behind the bar, so a restored bar can show the same one. */
+    val frozenBitmap: Bitmap? get() = frozenBmp
+
     fun onFrozen(bmp: Bitmap?, initialSource: Source?) {
         recordReadyAt = android.os.SystemClock.uptimeMillis() + RECORD_GRACE_MS
         frozenBmp = bmp

@@ -87,7 +87,8 @@ class SnapService : AccessibilityService() {
         // request that was answered while the service was away.
         main.post {
             if (io.github.kuscher.studiosnap.record.RecordingBus.active) showRecordingControls()
-            consumePendingPermission()
+            consumePendingPermission() // applies an answer that came in while we were away
+            restoreBar() // then brings back a bar parked by the old object
         }
     }
 
@@ -97,6 +98,8 @@ class SnapService : AccessibilityService() {
     override fun onUnbind(intent: android.content.Intent?): Boolean {
         Log.i(TAG, "unbind ${id()}")
         alive = false
+        // An open bar (or one hidden behind a permission dialog) comes back on the next object.
+        if (captureOverlay?.shown == true) parkBar()
         closeBar()
         captureOverlay?.destroy(); captureOverlay = null
         cardsOverlay?.destroy(); cardsOverlay = null
@@ -290,8 +293,8 @@ class SnapService : AccessibilityService() {
 
     /** [dry] = don't freeze the screen (transparent backdrop); used only for visual checks so an
      *  overlay screenshot shows StudioSnap's own UI and never the user's apps. */
-    fun openBar(initialSource: Source? = null, dry: Boolean = false, initialMode: CaptureMode? = null) {
-        if (!alive || barShown()) return
+    fun openBar(initialSource: Source? = null, dry: Boolean = false, initialMode: CaptureMode? = null, frozen: Bitmap? = null) {
+        if (!alive || captureOverlay?.shown == true) return
         val t0 = SystemClock.elapsedRealtime()
         val present = present@{ bmp: Bitmap? ->
             if (!alive) return@present // unbound while the screenshot was in flight
@@ -304,6 +307,7 @@ class SnapService : AccessibilityService() {
             Log.i(TAG, "bar shown in ${SystemClock.elapsedRealtime() - t0}ms frozen=${bmp != null} source=$initialSource mode=$initialMode")
         }
         if (dry) { present(null); return }
+        if (frozen != null) { present(frozen); return } // a restored bar keeps its frozen screen
         captureFullScreen(1) { bmp -> present(bmp) }
     }
 
@@ -394,7 +398,8 @@ class SnapService : AccessibilityService() {
     }
 
     fun closeBar() { dismissCapture() }
-    fun barShown(): Boolean = captureOverlay?.shown == true
+    /** The bar is on screen and taking input (not hidden behind a permission dialog). */
+    fun barShown(): Boolean = captureOverlay?.let { it.shown && !it.hidden } == true
 
     // ---- test harness (safe synthetic content; never the user's screen) ----
 
@@ -663,9 +668,12 @@ class SnapService : AccessibilityService() {
     private fun toggleRec(t: RecToggle) {
         val on = !recOptions.isOn(t)
         if (on && checkSelfPermission(t.permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            // Android's permission dialog draws under our full-screen overlay: close the bar and
-            // reopen it (in Record mode) once the user has answered.
-            dismissCapture()
+            // Android's permission dialog draws under our full-screen overlay, so the bar steps
+            // aside (hidden, not closed) and comes back as it was once the user has answered.
+            // Granting a permission makes Android restart this service, which removes our windows,
+            // so the bar is also parked process-wide for whichever service object is alive then.
+            parkBar()
+            captureOverlay?.setHidden(true)
             startActivity(io.github.kuscher.studiosnap.PermissionActivity.intent(this, t))
             return
         }
@@ -687,7 +695,33 @@ class SnapService : AccessibilityService() {
         if (!granted) {
             android.widget.Toast.makeText(this, "${t.label} is off. Allow it for StudioSnap in App info › Permissions.", android.widget.Toast.LENGTH_LONG).show()
         }
-        openBar(initialMode = CaptureMode.REC)
+        restoreBar()
+    }
+
+    /** Remembers the open bar (frozen screen, mode, source) so it can come back as it was. */
+    private fun parkBar() {
+        val s = session ?: return
+        parkedBar = ParkedBar(s.frozenBitmap, s.mode, s.source, SystemClock.elapsedRealtime())
+    }
+
+    /**
+     * Brings a parked bar back: the same window if this service object still has it, otherwise a
+     * new bar on the same frozen screen. Never while a permission dialog is up.
+     */
+    private fun restoreBar() {
+        if (io.github.kuscher.studiosnap.PermissionActivity.showing) return
+        val p = parkedBar ?: return
+        parkedBar = null
+        if (SystemClock.elapsedRealtime() - p.at > PARK_TTL_MS) return
+        val ov = captureOverlay
+        if (ov != null && ov.shown && ov.hidden && session != null) {
+            ov.setHidden(false)
+            session?.holdRecord()
+            Log.i(TAG, "bar back from behind the dialog")
+        } else {
+            openBar(initialSource = p.source, initialMode = p.mode, frozen = p.frozen)
+            Log.i(TAG, "bar restored (${p.mode})")
+        }
     }
 
     private fun startRecordFlow() {
@@ -757,6 +791,11 @@ class SnapService : AccessibilityService() {
          * without an answer (say, its app window was closed from the taskbar).
          */
         @Volatile var recordPending = false
+
+        /** An open bar to bring back after a permission dialog or a service restart. */
+        class ParkedBar(val frozen: Bitmap?, val mode: CaptureMode, val source: Source, val at: Long)
+        @Volatile var parkedBar: ParkedBar? = null
+        private const val PARK_TTL_MS = 60_000L
 
         /** A permission answer waiting for the service (it may be re-binding when it arrives). */
         @Volatile var pendingPermission: Pair<RecToggle, Boolean>? = null

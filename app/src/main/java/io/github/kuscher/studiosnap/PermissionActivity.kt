@@ -20,6 +20,7 @@ class PermissionActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        showing = true
         toggle = RecToggle.valueOf(intent.getStringExtra(EXTRA_TOGGLE) ?: RecToggle.MIC.name)
         if (checkSelfPermission(toggle.permission) == PackageManager.PERMISSION_GRANTED) {
             done(true)
@@ -33,7 +34,13 @@ class PermissionActivity : Activity() {
         done(grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
     }
 
+    override fun onDestroy() {
+        showing = false
+        super.onDestroy()
+    }
+
     private fun done(granted: Boolean) {
+        showing = false // the dialog is gone: the bar may come back now
         // Save the toggle here, not in the service: Android can briefly re-bind the accessibility
         // service around the permission dialog, so SnapService.instance may be null right now.
         // The answer is parked, then applied now or when the service reconnects.
@@ -46,6 +53,10 @@ class PermissionActivity : Activity() {
     companion object {
         private const val REQUEST = 42
         private const val EXTRA_TOGGLE = "toggle"
+
+        /** A permission dialog is up: a restored bar must wait, or it would cover the dialog. */
+        @Volatile var showing = false
+            private set
 
         fun intent(ctx: Context, t: RecToggle): Intent =
             Intent(ctx, PermissionActivity::class.java)
