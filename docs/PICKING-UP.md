@@ -180,6 +180,12 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
   (880 Hz → 830 Hz measured, mixed with room sound), off (no audio track, unchanged), revoked+denied
   (video only). Audio vs video start offset within ±26 ms. Debug: `recopt`, `tone`, `recinfo`.
 - Known limit: with both on and no headphones, the speakers echo into the mic.
+- The release APK used to carry INTERNET (and ACCESS_NETWORK_STATE): ML Kit's usage-logging
+  library (`com.google.android.datatransport:transport-backend-cct`) merges them in, so the
+  README's "no INTERNET permission" was not true of v0.1-v0.3. The manifest now removes INTERNET
+  (`tools:node="remove"`). ACCESS_NETWORK_STATE stays on purpose (it can't send anything, and
+  Android 14+ throws on the library's network-constrained upload job without it). Check with
+  `aapt2 dump permissions` on the release APK after any dependency change.
 - Review hardening (external code review, same day): the recording pill's window is pill-sized
   at the top center (the old full-screen overlay took every touch while recording); the
   notification has a Stop action; one recording at a time (UI + service guard); `Mp4Writer`
