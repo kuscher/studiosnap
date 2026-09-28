@@ -704,6 +704,7 @@ class SnapService : AccessibilityService() {
             // so the bar is also parked process-wide for whichever service object is alive then.
             parkBar()
             captureOverlay?.setHidden(true)
+            updateBubble() // the bubble steps aside with the bar
             startActivity(io.github.kuscher.studiosnap.PermissionActivity.intent(this, t))
             return
         }
@@ -748,6 +749,7 @@ class SnapService : AccessibilityService() {
         if (ov != null && ov.shown && ov.hidden && session != null) {
             ov.setHidden(false)
             session?.holdRecord()
+            updateBubble()
             Log.i(TAG, "bar back from behind the dialog")
         } else {
             openBar(initialSource = p.source, initialMode = p.mode, frozen = p.frozen)
