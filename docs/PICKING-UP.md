@@ -161,6 +161,26 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
   takes touches (the earlier full-screen card overlay ate all taps for 9s). Capped to one card.
 - Debug: `./ss debug ocr` (synthetic OCR self-test).
 
+## Recording audio: mic + system audio (2026-09-28, verified on device)
+- Record mode shows two toggles in the bar: **mic** (voice-over) and **system audio** (what apps
+  play, via AudioPlaybackCapture on the same MediaProjection). Persisted in `Settings`
+  (`recMic`, `recSystemAudio`); observable via `record/RecOptions`.
+- Permission: turning a toggle on without RECORD_AUDIO closes the bar (the system dialog draws
+  under our full-screen overlay), opens `PermissionActivity`, then reopens the bar in Record mode.
+  Denied leaves the toggle off with a toast. `RecordActivity` re-asks before consent if the
+  permission was revoked while a toggle is on; a refusal records video only.
+- `RecordService` claims FGS type microphone only when audio is on AND permitted (asking for the
+  type without the permission throws and would kill the recording).
+- `Mp4Writer` waits for both tracks before starting the muxer (buffers early samples); an audio
+  source that dies before its first format is abandoned so the video still saves.
+- `AudioCapture`: 48 kHz stereo AAC 160 kbps. Mic is the clock when on; system audio feeds a
+  100 ms ring (silence-padded). Timestamps from `AudioRecord.getTimestamp` (monotonic, same clock
+  as the screen frames). AEC is attached when both are on, if available.
+- Verified on the Acer (x86_64): mic-only, system-only (440 Hz tone → 454 Hz measured), both
+  (880 Hz → 830 Hz measured, mixed with room sound), off (no audio track, unchanged), revoked+denied
+  (video only). Audio vs video start offset within ±26 ms. Debug: `recopt`, `tone`, `recinfo`.
+- Known limit: with both on and no headphones, the speakers echo into the mic.
+
 ## Next — republish release w/ these fixes when user OKs; polish (scroll progress HUD, home desktop layout) + 4b recording (paused).
 Remaining Phase 1 work:
 1. Capture engine: `takeScreenshot` (full/area-crop) and `takeScreenshotOfWindow`; ~333 ms limit.

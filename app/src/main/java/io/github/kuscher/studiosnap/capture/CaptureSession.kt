@@ -10,6 +10,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import io.github.kuscher.studiosnap.record.RecOptions
+import io.github.kuscher.studiosnap.record.RecToggle
 import io.github.kuscher.studiosnap.service.SnapService
 import io.github.kuscher.studiosnap.ui.CaptureMode
 import io.github.kuscher.studiosnap.ui.Source
@@ -44,6 +46,9 @@ class CaptureSession(
     private val onRecord: () -> Unit = {},
     private val onScroll: (WinInfo) -> Unit = {},
     private val onDismiss: () -> Unit,
+    /** Record-mode toggles (mic, system audio); null hides them. */
+    val recOptions: RecOptions? = null,
+    private val onRecToggle: (RecToggle) -> Unit = {},
 ) {
     private val elementCache = HashMap<Int, List<ElementInfo>>()
     var mode by mutableStateOf(CaptureMode.SHOT)
@@ -96,6 +101,8 @@ class CaptureSession(
         selection = null; phase = SelPhase.AIM
         hover = if (source == Source.SCREEN) Hover(fullRect(), "Display 1", false, null) else null
     }
+
+    fun toggleRec(t: RecToggle) = onRecToggle(t)
 
     fun changeSource(s: Source) {
         if (mode == CaptureMode.REC && s !in recSources) return
