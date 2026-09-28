@@ -30,11 +30,17 @@ class Settings(ctx: Context) {
         get() = p.getBoolean(BAR_TOP, false)
         set(v) = p.edit().putBoolean(BAR_TOP, v).apply()
 
+    /** Set once the user finishes (or skips) the first-run onboarding. */
+    var onboardingDone: Boolean
+        get() = p.getBoolean(ONBOARDED, false)
+        set(v) = p.edit().putBoolean(ONBOARDED, v).apply()
+
     companion object {
         private const val KEY_TAKEOVER = "keyTakeover"
         private const val COPY = "copyAfter"
         private const val SAVE = "saveAfter"
         private const val CARD = "showCard"
         private const val BAR_TOP = "barAtTop"
+        private const val ONBOARDED = "onboardingDone"
     }
 }

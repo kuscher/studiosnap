@@ -35,6 +35,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,26 +47,52 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.kuscher.studiosnap.service.SnapService
+import io.github.kuscher.studiosnap.ui.OnboardingScreen
+import io.github.kuscher.studiosnap.util.Settings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
+    // Re-checked on resume so the UI updates when the user returns from Accessibility settings.
+    private val serviceOn = mutableStateOf(false)
+    // Debug-only: pretend the service is off (to preview onboarding's enable state). Cosmetic.
+    private var forceOff = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        forceOff = intent?.getBooleanExtra("force_off", false) == true
+        serviceOn.value = !forceOff && isServiceEnabled(this)
         setContent {
             val dark = isSystemInDarkTheme()
             MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
                 Surface(Modifier.fillMaxSize()) {
-                    Home(
-                        serviceOn = isServiceEnabled(this),
-                        onOpenAccessibility = { startActivity(Intent(SysSettings.ACTION_ACCESSIBILITY_SETTINGS)) },
-                        onTestBar = { SnapService.instance?.openBar() },
-                        onSettings = { startActivity(Intent(this, SettingsActivity::class.java)) },
-                        onOpen = { uri -> startActivity(Intent(Intent.ACTION_EDIT).setDataAndType(uri, "image/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) },
-                    )
+                    val settings = remember { Settings(this) }
+                    var onboarded by remember { mutableStateOf(settings.onboardingDone) }
+                    val openAccessibility = { startActivity(Intent(SysSettings.ACTION_ACCESSIBILITY_SETTINGS)) }
+                    if (!onboarded) {
+                        OnboardingScreen(
+                            serviceOn = serviceOn.value,
+                            onEnable = openAccessibility,
+                            onStart = { settings.onboardingDone = true; onboarded = true },
+                            onSkip = { settings.onboardingDone = true; onboarded = true },
+                        )
+                    } else {
+                        Home(
+                            serviceOn = serviceOn.value,
+                            onOpenAccessibility = openAccessibility,
+                            onTestBar = { SnapService.instance?.openBar() },
+                            onSettings = { startActivity(Intent(this, SettingsActivity::class.java)) },
+                            onOpen = { uri -> startActivity(Intent(Intent.ACTION_EDIT).setDataAndType(uri, "image/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) },
+                        )
+                    }
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        serviceOn.value = !forceOff && isServiceEnabled(this)
     }
 }
 
