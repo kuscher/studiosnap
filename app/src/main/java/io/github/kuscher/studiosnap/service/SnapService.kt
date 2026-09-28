@@ -91,6 +91,8 @@ class SnapService : AccessibilityService() {
             if (io.github.kuscher.studiosnap.record.RecordingBus.active) showRecordingControls()
             consumePendingPermission() // applies an answer that came in while we were away
             restoreBar() // then brings back a bar parked by the old object
+            // A bubble for a pending recording comes back; one left by the old object goes.
+            updateBubble()
         }
     }
 
@@ -462,7 +464,7 @@ class SnapService : AccessibilityService() {
     fun debugBubble(args: List<String>) {
         when (args.getOrNull(0)) {
             "cam" -> { recOptions.set(RecToggle.CAMERA, args.getOrNull(1) == "on"); updateBubble() }
-            "test" -> CameraBubble.testPattern = args.getOrNull(1) != "off"
+            "test" -> CameraBubble.switchTestPattern(args.getOrNull(1) != "off")
             "corner" -> bubble.moveToCorner(args.getOrNull(1)?.toIntOrNull() ?: 3)
             "size" -> bubble.toggleSize()
             "shape" -> bubble.toggleShape()
@@ -758,6 +760,7 @@ class SnapService : AccessibilityService() {
      * bar is in Record mode or a recording is starting or running.
      */
     private fun updateBubble() {
+        if (!alive) { bubble.hide(); return }
         val permitted = checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
         val recording = recordPending || io.github.kuscher.studiosnap.record.RecordingBus.active
         val barInRec = barShown() && session?.mode == CaptureMode.REC

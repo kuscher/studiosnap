@@ -90,11 +90,18 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
 
     val shown: Boolean get() = overlay != null
 
-    /** True while the bubble is on screen showing the real camera image. */
-    val showingCamera: Boolean get() = shown && !testPattern
+    /**
+     * True while the bubble is on screen and may show the real camera image: also for a second
+     * after the test pattern is switched on, until the replacement has certainly been drawn.
+     */
+    val showingCamera: Boolean
+        get() = shown && (!testPattern || android.os.SystemClock.uptimeMillis() - testPatternSince < 1000)
 
     fun show() {
         if (overlay != null) return
+        // One bubble per process: one left behind by an earlier service object goes first.
+        current?.takeIf { it !== this }?.hide()
+        current = this
         val px = windowPx()
         val (x, y) = cornerOffset(settings.bubbleCorner, px)
         val ov = ComposeOverlay(
@@ -103,17 +110,18 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
         )
         overlay = ov
         ov.show { BubbleContent(this) }
-        Log.i(SnapService.TAG, "bubble shown corner=${settings.bubbleCorner} large=$large square=$square")
+        Log.i(SnapService.TAG, "bubble ${Integer.toHexString(System.identityHashCode(this))} shown corner=${settings.bubbleCorner} large=$large square=$square")
     }
 
     fun hide() {
+        if (current === this) current = null
         val ov = overlay ?: return
         overlay = null
         snap?.cancel()
         runCatching { provider?.unbindAll() }
         previewView = null
         ov.destroy()
-        Log.i(SnapService.TAG, "bubble hidden")
+        Log.i(SnapService.TAG, "bubble ${Integer.toHexString(System.identityHashCode(this))} hidden")
     }
 
     /** Re-adds the window so it sits above an overlay that was added after it (the bar, the pill). */
@@ -291,6 +299,16 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
          * around a permission dialog, and the pattern must survive that.
          */
         var testPattern by mutableStateOf(false)
+            private set
+        private var testPatternSince = 0L
+
+        fun switchTestPattern(on: Boolean) {
+            if (on && !testPattern) testPatternSince = android.os.SystemClock.uptimeMillis()
+            testPattern = on
+        }
+
+        /** The bubble on screen, process-wide (at most one). */
+        private var current: CameraBubble? = null
     }
 }
 
