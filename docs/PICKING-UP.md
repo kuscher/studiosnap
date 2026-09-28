@@ -143,7 +143,16 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
    drop-zone + "Open from Files" → `OpenDocument` image picker → loads into the editor).
 - Debug helpers added: `debug open section`, `debug mode rec|shot`.
 
-## Next — 0.2 release (cursor-erase + onboarding + scrolling capture + these fixes). (4b recording polish paused per user.)
+## First-run redesign + coral brand + v0.2 published (2026-09-28)
+- Onboarding rebuilt desktop-class: two-column hero (brand + features + one-time-setup left, a
+  rendered **product preview** right — mock captured window with coral highlight/arrow/step badge +
+  the floating bar). Stacks on narrow windows (`BoxWithConstraints`, wide >= 900dp). Coral brand
+  mapped onto Material 3 (`CoralLight`/`CoralDark` in MainActivity) so home + onboarding match the bar.
+- **GitHub release v0.2 published** (kuscher/studiosnap/releases, `StudioSnap-0.2.apk` ~2.9 MB).
+- `./ss enable/disable` fixed to add/remove ONLY our a11y component (was overwriting the whole
+  `enabled_accessibility_services`, disabling other apps like BarBook on the shared Googlebook).
+
+## Next — polish (scroll-capture progress HUD, card taskbar-dodge, home desktop layout) + 4b recording (paused per user).
 Remaining Phase 1 work:
 1. Capture engine: `takeScreenshot` (full/area-crop) and `takeScreenshotOfWindow`; ~333 ms limit.
 2. Selection layer in the full-screen overlay: freeze frame, dim outside, crosshair + loupe, W×H
