@@ -199,7 +199,7 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
   `SnapService.pendingPermission` and applied on reconnect, and a reconnect mid-recording
   restores the pill. `PermissionActivity` must NOT be `noHistory` (no result callbacks).
 
-## Camera bubble (2026-09-28, built; on-device test pending)
+## Camera bubble (2026-09-28, verified on device)
 - Record mode gets a third toggle, **camera**, which shows `record/CameraBubble`: a live CameraX
   preview (PreviewView in COMPATIBLE/TextureView mode so the Compose clip applies) in its own small
   accessibility overlay, so the MediaProjection recording captures it as displayed. It shows while
@@ -218,6 +218,18 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
 - Known limit: the camera list is read when the camera binds, so a webcam plugged in while the
   bubble is up gets its switch button the next time the bubble shows.
 - CameraX 1.6.2 adds ~2 MB to the release APK (29.2 MB).
+- Verified on the Acer (x86_64, one front camera): permission via the real dialog; live camera
+  from logs only (`bubble camera 0 facing=0`, `STREAMING`, `dumpsys media.camera` open by us)
+  with NO foreground service running; camera closed when the bar closes; tap shows controls;
+  size and shape toggles; drag snaps to top-left and back; a recording with the test pattern
+  has the gradient at the bubble's position (`debug recpixel`); with the camera on, the
+  consent dialog offers only "Share entire screen"; accepting it after the service is recreated
+  brings back the bubble and the pill.
+- Android recreates the accessibility service (a NEW object) around the permission and consent
+  dialogs. State that must survive (test pattern, pending permission answers) is process-wide;
+  a running recording is restored in `onServiceConnected`.
+- `debug shot` refuses to run while the bubble shows the real camera: `debug bubble test on`
+  first. Never screenshot a live bubble.
 
 ## Next — republish release w/ these fixes when user OKs; polish (scroll progress HUD, home desktop layout) + 4b recording (paused).
 Remaining Phase 1 work:
