@@ -119,7 +119,31 @@ Phase 2b/2c: DONE (text/crop/select-move tools, Frame/beautify panel w/ live pre
   (540×1004, one scroll, seamless — content below the fold included). Note: no on-screen progress
   HUD yet during the multi-second capture (the visible auto-scroll is the feedback) — v1.1 polish.
 
-## Next — 0.2 release (cursor-erase + onboarding + scrolling capture). (4b recording polish paused per user.)
+## On-device feedback fixes (2026-09-28, verified on device)
+User tested the build and reported 8 issues; all fixed + verified via the safe harness:
+1. **Bar hover highlights were rectangles** — `.clickable` wasn't clipped to the pill shape, so
+   the mouse-hover/press ripple drew on square bounds. Added `.clip(CircleShape)` to `HudButton`
+   and the mode/source chips.
+2. **Area highlighted every UI element** — Area now a clean drag (crosshair + loupe + marquee),
+   no element snapping (`onHover` returns null for AREA/TEXT).
+3. **New "Sections" source** (`Sym.ADS_CLICK`) — carries the element/section snapper (hover to
+   highlight rounded, click/primary to grab); moved out of Area. In `shotSources` after Area.
+4. **Result card floated mid-screen** — a fixed-size accessibility-overlay window gets centred by
+   the system. Made the cards overlay full-screen and dock the card **bottom-right**
+   (`Alignment.BottomEnd`). Bottom inset from `currentWindowMetrics` (returns 0 here — taskbar not
+   reported — so it sits like the capture bar, over the taskbar; refine later if wanted).
+5. **Record mode screenshotted on window-tap** — `tapAt` ignored REC mode. Now `recSources` is
+   just `[SCREEN]` and any tap/primary in REC records. (Per-window/region record still 4b.)
+6. **Editor vs home confusion** — editor is now "StudioSnap Editor" (own `taskAffinity`, task
+   label, `.EditorLauncher` MAIN/LAUNCHER alias, coral pencil in its top bar); home stays
+   "StudioSnap" with its own task label.
+7. **Home looked web-ish** — reworked with Material 3: `TopAppBar`, elevated status card, tonal
+   Capture-bar / Editor buttons, Recent grid.
+8. **Editor empty mode** — `StudioActivity` with no image shows `EmptyEditor` (editor chrome +
+   drop-zone + "Open from Files" → `OpenDocument` image picker → loads into the editor).
+- Debug helpers added: `debug open section`, `debug mode rec|shot`.
+
+## Next — 0.2 release (cursor-erase + onboarding + scrolling capture + these fixes). (4b recording polish paused per user.)
 Remaining Phase 1 work:
 1. Capture engine: `takeScreenshot` (full/area-crop) and `takeScreenshotOfWindow`; ~333 ms limit.
 2. Selection layer in the full-screen overlay: freeze frame, dim outside, crosshair + loupe, W×H
