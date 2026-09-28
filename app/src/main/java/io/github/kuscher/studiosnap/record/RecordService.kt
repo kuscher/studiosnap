@@ -52,6 +52,8 @@ class RecordService : Service(), RecordController {
     /** Tracks (video, audio) still running; the file is finished when this reaches zero. */
     private val tracksLeft = AtomicInteger(1)
     @Volatile private var stopRequested = false
+    @Volatile private var stopAt = 0L
+    private var fgMicrophone = false
     @Volatile private var discarded = false
     private var startedAt = 0L
     private val ticker = Handler(android.os.Looper.getMainLooper())
@@ -64,10 +66,22 @@ class RecordService : Service(), RecordController {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
+        if (intent.action == ACTION_STOP) {
+            if (instance != null) stop() else stopSelf()
+            return START_NOT_STICKY
+        }
+        if (instance != null) {
+            // Already recording (or still saving): never let a second start replace the session
+            // under its running encoder threads. Still satisfy the startForeground contract.
+            Log.w(SnapService.TAG, "record start ignored: a recording is already running")
+            startForegroundNotification(microphone = fgMicrophone)
+            return START_NOT_STICKY
+        }
         val settings = Settings(this)
         // Only claim the microphone FGS type when audio is on AND permitted: asking for the type
         // without RECORD_AUDIO throws, which would kill the whole recording.
         val wantAudio = (settings.recMic || settings.recSystemAudio) && AudioCapture.hasPermission(this)
+        fgMicrophone = wantAudio
         startForegroundNotification(microphone = wantAudio)
         val code = intent.getIntExtra(EXTRA_CODE, 0)
         val data = intent.getParcelableExtra<Intent>(EXTRA_DATA)
@@ -76,7 +90,9 @@ class RecordService : Service(), RecordController {
             startEncoder(code, data, wantAudio, settings)
         } catch (e: Exception) {
             Log.e(SnapService.TAG, "record start failed: $e")
-            cleanup(); stopSelf(); return START_NOT_STICKY
+            cleanup(); stopSelf()
+            SnapService.instance?.onRecordingSaved(false, 0L, null)
+            return START_NOT_STICKY
         }
         instance = this
         RecordingBus.controller = this
@@ -101,10 +117,10 @@ class RecordService : Service(), RecordController {
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
         }
         val c = MediaCodec.createEncoderByType("video/avc")
+        codec = c // held before configure, so cleanup() releases it if configure/start throws
         c.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
         inputSurface = c.createInputSurface()
         c.start()
-        codec = c
 
         cacheFile = File(cacheDir, "rec-${System.currentTimeMillis()}.mp4")
 
@@ -136,23 +152,44 @@ class RecordService : Service(), RecordController {
     }
 
     private fun drain() {
-        val c = codec ?: return
-        val info = MediaCodec.BufferInfo()
-        while (true) {
-            val idx = try { c.dequeueOutputBuffer(info, 10_000) } catch (e: Exception) { break }
-            when {
-                idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> videoTrack = writer!!.addTrack(c.outputFormat)
-                idx >= 0 -> {
-                    val buf = c.getOutputBuffer(idx)
-                    if (info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) info.size = 0
-                    if (info.size > 0 && videoTrack >= 0 && buf != null) writer!!.write(videoTrack, buf, info)
-                    c.releaseOutputBuffer(idx, false)
-                    if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
+        val c = codec
+        val w = writer
+        try {
+            if (c == null || w == null) return
+            val info = MediaCodec.BufferInfo()
+            while (true) {
+                val idx = c.dequeueOutputBuffer(info, 10_000)
+                when {
+                    idx == MediaCodec.INFO_TRY_AGAIN_LATER -> {
+                        // After Stop, an encoder that never emits end-of-stream must not keep the
+                        // file open forever.
+                        if (stopRequested && SystemClock.elapsedRealtime() - stopAt > EOS_DEADLINE_MS) {
+                            Log.w(SnapService.TAG, "video encoder gave no end-of-stream; finishing anyway")
+                            break
+                        }
+                    }
+                    idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> videoTrack = w.addTrack(c.outputFormat, required = true)
+                    idx >= 0 -> {
+                        try {
+                            val buf = c.getOutputBuffer(idx)
+                            if (info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) info.size = 0
+                            if (info.size > 0 && buf != null) w.write(videoTrack, buf, info)
+                        } finally {
+                            c.releaseOutputBuffer(idx, false)
+                        }
+                        if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
+                    }
                 }
             }
+        } catch (e: Exception) {
+            Log.w(SnapService.TAG, "video drain ended: $e")
+        } finally {
+            if (videoTrack < 0) runCatching { writer?.abandon() }
+            // Video ending before the user stopped (a codec error) ends the whole session, so the
+            // audio track doesn't record on alone.
+            if (!stopRequested) ticker.post { stop() }
+            trackDone()
         }
-        if (videoTrack < 0) writer?.abandon()
-        trackDone()
     }
 
     private fun trackDone() { if (tracksLeft.decrementAndGet() == 0) finishFile() }
@@ -163,6 +200,7 @@ class RecordService : Service(), RecordController {
     private fun requestStop(discard: Boolean) {
         if (stopRequested) return
         stopRequested = true; discarded = discard
+        stopAt = SystemClock.elapsedRealtime()
         RecordingBus.active = false
         ticker.removeCallbacks(tick)
         audio?.stop()
@@ -174,15 +212,17 @@ class RecordService : Service(), RecordController {
     @Synchronized private fun finishFile() {
         if (finished) return
         finished = true
-        val ok = (writer?.finish() ?: false) && videoTrack >= 0
+        val w = writer
+        val ok = w != null && w.finish() && videoTrack >= 0 && w.sampleCount(videoTrack) > 0
         cleanup()
         val dur = RecordingBus.elapsedMs
         ticker.post {
-            if (!discarded && ok && cacheFile.exists() && cacheFile.length() > 0) {
-                val uri = saveToMovies(cacheFile)
-                val thumb = uri?.let { runCatching { contentResolver.loadThumbnail(it, android.util.Size(600, 380), null) }.getOrNull() }
+            val uri = if (!discarded && ok && cacheFile.exists() && cacheFile.length() > 0) saveToMovies(cacheFile) else null
+            if (uri != null) {
+                val thumb = runCatching { contentResolver.loadThumbnail(uri, android.util.Size(600, 380), null) }.getOrNull()
                 SnapService.instance?.onRecordingSaved(true, dur, thumb)
             } else {
+                if (!discarded) android.widget.Toast.makeText(this, "Couldn't save the recording", android.widget.Toast.LENGTH_LONG).show()
                 cacheFile.delete()
                 SnapService.instance?.onRecordingSaved(false, 0L, null)
             }
@@ -195,7 +235,8 @@ class RecordService : Service(), RecordController {
 
     private fun cleanup() {
         runCatching { virtualDisplay?.release() }
-        runCatching { codec?.stop(); codec?.release() }
+        runCatching { codec?.stop() }
+        runCatching { codec?.release() }
         runCatching { writer?.finish() }
         if (!audioStarted) runCatching { audio?.release() }
         runCatching { projection?.stop() }
@@ -204,7 +245,8 @@ class RecordService : Service(), RecordController {
         virtualDisplay = null; codec = null; writer = null; audio = null; projection = null; inputSurface = null; drainThread = null
     }
 
-    private fun saveToMovies(file: File): android.net.Uri? = try {
+    /** Copies the finished MP4 into Movies/StudioSnap. Null (and no half-written row) on failure. */
+    private fun saveToMovies(file: File): android.net.Uri? {
         val name = "Rec " + java.text.SimpleDateFormat("yyyy-MM-dd 'at' HH.mm.ss", java.util.Locale.US).format(java.util.Date())
         val values = ContentValues().apply {
             put(MediaStore.Video.Media.DISPLAY_NAME, "$name.mp4")
@@ -213,22 +255,35 @@ class RecordService : Service(), RecordController {
             put(MediaStore.Video.Media.IS_PENDING, 1)
         }
         val resolver = contentResolver
-        val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-        if (uri != null) {
-            resolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
+        var uri: android.net.Uri? = null
+        return try {
+            uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values) ?: throw IllegalStateException("insert returned null")
+            val out = resolver.openOutputStream(uri) ?: throw IllegalStateException("no output stream")
+            out.use { o -> file.inputStream().use { it.copyTo(o) } }
             values.clear(); values.put(MediaStore.Video.Media.IS_PENDING, 0); resolver.update(uri, values, null, null)
+            Log.i(SnapService.TAG, "recording saved -> Movies/StudioSnap")
+            uri
+        } catch (e: Exception) {
+            Log.w(SnapService.TAG, "save recording failed: $e")
+            uri?.let { runCatching { resolver.delete(it, null, null) } }
+            null
+        } finally {
+            file.delete()
         }
-        file.delete()
-        Log.i(SnapService.TAG, "recording saved -> Movies/StudioSnap")
-        uri
-    } catch (e: Exception) { Log.w(SnapService.TAG, "save recording failed: $e"); null }
+    }
 
     private fun startForegroundNotification(microphone: Boolean) {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Screen recording", NotificationManager.IMPORTANCE_LOW))
+        // A Stop action here too, so a recording can always be ended even if the pill is gone.
+        val stopIntent = android.app.PendingIntent.getService(
+            this, 0, Intent(this, RecordService::class.java).setAction(ACTION_STOP),
+            android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
         val n: Notification = Notification.Builder(this, CHANNEL)
             .setContentTitle("StudioSnap is recording")
             .setSmallIcon(android.R.drawable.presence_video_online)
+            .addAction(Notification.Action.Builder(null, "Stop", stopIntent).build())
             .setOngoing(true).build()
         var types = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
         if (microphone) types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
@@ -239,6 +294,8 @@ class RecordService : Service(), RecordController {
         const val CHANNEL = "recording"
         const val EXTRA_CODE = "code"
         const val EXTRA_DATA = "data"
+        private const val ACTION_STOP = "io.github.kuscher.studiosnap.record.STOP"
+        private const val EOS_DEADLINE_MS = 3000L
         @Volatile var instance: RecordService? = null
             private set
 
