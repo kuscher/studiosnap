@@ -77,6 +77,16 @@ cd studiosnap
 
 Contributor notes and the project pickup guide live in [`CLAUDE.md`](CLAUDE.md) and [`docs/PICKING-UP.md`](docs/PICKING-UP.md).
 
+## Disclaimer
+
+StudioSnap is a **personal hobby project by Alexander Kuscher**, built in my own free time for fun. It is **not affiliated with, endorsed by, sponsored by, or connected to my employer** — or any other company — in any way, and nothing in this project should be read as an endorsement in either direction. All opinions, code, and design here are my own. Product and company names, including "Googlebook," are trademarks of their respective owners; this is an independent project and is not affiliated with or endorsed by them.
+
 ## License
 
 [MIT](LICENSE) © 2026 Alexander Kuscher
+
+<div align="center">
+
+<sub>🖥️ Proudly designed, built, and tested <strong>entirely on a Googlebook</strong>.</sub>
+
+</div>
