@@ -13,6 +13,9 @@
     <!-- Only used when you turn on the mic or system-audio toggle for a recording. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- Only used for the camera bubble, when you turn it on in Record mode. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application

@@ -38,6 +38,7 @@ class DebugReceiver : BroadcastReceiver() {
             "recframe" -> svc?.debugRecFrame(args.getOrNull(1) ?: "recframe")
             "recopt" -> svc?.debugRecOptions(args.getOrNull(1) ?: "off")
             "recinfo" -> RecProbe.inspectLatest(ctx)
+            "bubble" -> svc?.debugBubble(args.drop(1))
             "tone" -> RecProbe.tone(i(args, 1).takeIf { it > 0 } ?: 3, i(args, 2).takeIf { it > 0 } ?: 440)
             "scrollcap" -> svc?.debugScroll(args.getOrNull(1) ?: "studiosnap")
             "scrollself" -> svc?.debugScrollSelfTest()

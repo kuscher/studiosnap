@@ -48,8 +48,13 @@ SDK 37), native Kotlin + Jetpack Compose, MIT. The floating **capture bar** is t
 - `studio/` — the annotation editor (`StudioScreen`, `EditorState`, `EmptyEditor` empty state).
 - `record/` — `RecordService` (MediaProjection → H.264 → `Mp4Writer`), `AudioCapture` (mic +
   AudioPlaybackCapture → AAC, timestamps in the monotonic clock), `RecOptions` (the bar's Record
-  toggles, persisted in `Settings`). `util/RecProbe` = adb checks of recorded audio (`debug recinfo`,
-  `debug tone`, `debug recopt mic|sys|both|off`) that never play or pull the content.
+  toggles, persisted in `Settings`), `CameraBubble` (the ChromeOS-style camera bubble: a CameraX
+  PreviewView in its own small accessibility overlay, recorded as part of the screen; bound to the
+  overlay's lifecycle, no camera FGS because the a11y binding already grants the camera capability).
+  `util/RecProbe` = adb checks of recorded audio (`debug recinfo`,
+  `debug tone`, `debug recopt mic|sys|both|off`) that never play or pull the content. Bubble checks:
+  `debug bubble cam on|off|test on|off|corner N|size|shape|switch|info`. Use `test on` before any
+  overlay screenshot so it shows a test pattern, never the user's face.
 - Icons: add a codepoint to `util/Sym.kt`, then regenerate the font subsets with
   `tools/subset_symbols.py` (instructions in the script).
 - Activities: `MainActivity` (native coral home), `StudioActivity` ("StudioSnap Editor", own

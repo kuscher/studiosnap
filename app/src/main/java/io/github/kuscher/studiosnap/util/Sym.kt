@@ -28,6 +28,7 @@ object Sym {
     const val CHEVRON_RIGHT = "\ue5cc"  // chevron_right
     const val CIRCLE = "\uef4a"  // circle
     const val CLOSE = "\ue5cd"  // close
+    const val CLOSE_FULLSCREEN = "\uf1cf"  // close_fullscreen
     const val COLORIZE = "\ue3b8"  // colorize
     const val CONTENT_COPY = "\ue14d"  // content_copy
     const val CONTENT_CUT = "\ue14e"  // content_cut
@@ -74,6 +75,7 @@ object Sym {
     const val MIC_OFF = "\ue02b"  // mic_off
     const val MORE_HORIZ = "\ue5d3"  // more_horiz
     const val OPACITY = "\ue91c"  // opacity
+    const val OPEN_IN_FULL = "\uf1ce"  // open_in_full
     const val OPEN_IN_NEW = "\ue89e"  // open_in_new
     const val PALETTE = "\ue40a"  // palette
     const val PAUSE = "\ue034"  // pause
@@ -98,6 +100,7 @@ object Sym {
     const val SEARCH = "\uef7a"  // search
     const val SELECT_WINDOW = "\ue6fa"  // select_window
     const val SETTINGS = "\ue8b8"  // settings
+    const val SQUARE = "\ueb36"  // square
     const val STAR = "\uf09a"  // star
     const val STICKY_NOTE_2 = "\uf1fc"  // sticky_note_2
     const val STOP = "\ue047"  // stop
@@ -114,6 +117,8 @@ object Sym {
     const val TUNE = "\ue429"  // tune
     const val UNDO = "\ue166"  // undo
     const val VIDEOCAM = "\ue04b"  // videocam
+    const val VIDEO_CAMERA_FRONT = "\uf080"  // video_camera_front
+    const val VIDEO_CAMERA_FRONT_OFF = "\uf83b"  // video_camera_front_off
     const val VISIBILITY = "\ue8f4"  // visibility
     const val VISIBILITY_OFF = "\ue8f5"  // visibility_off
     const val VOLUME_OFF = "\ue04f"  // volume_off
