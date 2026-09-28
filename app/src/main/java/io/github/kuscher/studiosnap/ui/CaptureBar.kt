@@ -17,17 +17,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.kuscher.studiosnap.capture.CaptureSession
 import io.github.kuscher.studiosnap.util.Sym
 
 enum class CaptureMode { SHOT, REC }
-enum class Source(val glyph: String, val label: String) {
+enum class Source(val glyph: String, val label: String, val beta: Boolean = false) {
     AREA(Sym.SCREENSHOT_REGION, "Area"),
     SECTION(Sym.ADS_CLICK, "Sections"),
     WINDOW(Sym.SELECT_WINDOW, "Window"),
     SCREEN(Sym.FULLSCREEN, "Screen"),
-    SCROLL(Sym.SWIPE_VERTICAL, "Scroll"),
+    SCROLL(Sym.SWIPE_VERTICAL, "Scroll", beta = true),
     TEXT(Sym.TEXT_FIELDS, "Text"),
 }
 
@@ -146,7 +150,16 @@ private fun SourceButton(session: CaptureSession, src: Source) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        SymText(src.glyph, size = 22, filled = on, color = if (on) hud.selInk else hud.ink)
+        Box {
+            SymText(src.glyph, size = 22, filled = on, color = if (on) hud.selInk else hud.ink)
+            if (src.beta && !on) Box(
+                Modifier.align(Alignment.TopEnd).offset(x = 3.dp, y = (-3).dp).size(7.dp)
+                    .clip(CircleShape).background(hud.primary).border(1.5.dp, hud.surface, CircleShape),
+            )
+        }
         if (on) HudText(src.label, size = 14, color = hud.selInk)
+        if (on && src.beta) Box(
+            Modifier.clip(RoundedCornerShape(5.dp)).background(hud.selInk.copy(alpha = 0.15f)).padding(horizontal = 5.dp, vertical = 1.dp),
+        ) { HudText("BETA", size = 9, weight = FontWeight.Bold, color = hud.selInk) }
     }
 }

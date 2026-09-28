@@ -49,7 +49,7 @@ fun TextRoot(text: String, dark: Boolean, onCopy: () -> Unit, onSearch: () -> Un
                         .background(hud.track, RoundedCornerShape(12.dp)).padding(12.dp)
                         .verticalScroll(rememberScrollState()),
                 ) {
-                    HudText(text.ifBlank { "No selectable text here. On-device OCR arrives in a later build." }, size = 14, color = hud.ink)
+                    HudText(text.ifBlank { "No text found in this area." }, size = 14, color = hud.ink)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Chip(Sym.CHECK, "Copied", selected = true) { onCopy() }
