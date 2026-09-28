@@ -10,6 +10,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import android.view.Display
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
@@ -278,7 +279,7 @@ class SnapService : AccessibilityService() {
         val copy = settings.copyAfter; val save = settings.saveAfter
         if (settings.showCard) {
             cards.add(CardData(cardId++, img, "$label · ${bmp.width} × ${bmp.height}", copied = copy, saved = save, filePath = working.absolutePath))
-            while (cards.size > 3) cards.removeAt(0)
+            while (cards.size > 1) cards.removeAt(0)
             ensureCardsOverlay()
         }
         bg.execute {
@@ -299,20 +300,37 @@ class SnapService : AccessibilityService() {
     }
 
     private fun ensureCardsOverlay() {
-        // Full-screen overlay; the card docks itself to the corner (a fixed-size window gets
-        // centred by the system, which is why the card used to float mid-screen).
-        val ov = cardsOverlay ?: ComposeOverlay(this).also { cardsOverlay = it }
-        val bottomInset = runCatching {
-            val wm = getSystemService(WindowManager::class.java)
-            wm.currentWindowMetrics.windowInsets.getInsets(
-                android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.navigationBars(),
+        // Full-screen overlay (accessibility overlays ignore gravity for smaller sizes, so a corner
+        // window just gets centred); the card aligns itself to the bottom-left, beside the system
+        // clipboard chip. Touch only lands on the card — the rest passes through (touchThrough).
+        val density = resources.displayMetrics.density
+        val wm = getSystemService(WindowManager::class.java)
+        val metrics = wm.maximumWindowMetrics
+        val screenW = metrics.bounds.width(); val screenH = metrics.bounds.height()
+        val navBottom: Int = runCatching {
+            metrics.windowInsets.getInsetsIgnoringVisibility(
+                android.view.WindowInsets.Type.navigationBars() or android.view.WindowInsets.Type.systemBars(),
             ).bottom
         }.getOrDefault(0)
+        val taskbar = maxOf(navBottom, (120 * density).toInt())  // reported inset underreports the taskbar
+        val wPx = (352 * density).toInt(); val hPx = (300 * density).toInt()
+        val marginL = (14 * density).toInt(); val marginB = (8 * density).toInt()
+        // Accessibility overlays centre; offset a fixed-size window to the bottom-left corner.
+        val offX = marginL - (screenW - wPx) / 2
+        val offY = (screenH - taskbar - marginB) - (screenH + hPx) / 2
+        val ov = cardsOverlay ?: ComposeOverlay(
+            this,
+            widthSpec = wPx,
+            heightSpec = hPx,
+            gravity = Gravity.CENTER,
+            noLimits = false,
+            offsetX = offX,
+            offsetY = offY,
+        ).also { cardsOverlay = it }
         ov.show {
             CardStack(
                 cards = cards,
                 dark = isNight(),
-                bottomInsetPx = bottomInset,
                 onDismiss = { id -> removeCard(id) },
                 onCopy = { /* re-copy handled below */ recopy(it) },
                 onEdit = { openStudio(it) },
@@ -591,7 +609,7 @@ class SnapService : AccessibilityService() {
         val img = (thumb ?: Bitmap.createBitmap(600, 380, Bitmap.Config.ARGB_8888).also { it.eraseColor(0xFF2A2D33.toInt()) }).asImageBitmap()
         val s = durationMs / 1000
         cards.add(CardData(cardId++, img, "Recording · %d:%02d".format(s / 60, s % 60), copied = false, saved = true, filePath = null))
-        while (cards.size > 3) cards.removeAt(0)
+        while (cards.size > 1) cards.removeAt(0)
         ensureCardsOverlay()
     }
 
