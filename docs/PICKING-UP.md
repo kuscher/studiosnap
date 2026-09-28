@@ -76,6 +76,23 @@ Phase 2b/2c: DONE (text/crop/select-move tools, Frame/beautify panel w/ live pre
   GitHub release v0.1 has the APK. **Back up the keystore privately; store the password in the pw
   manager** (still TODO).
 
+## Mouse cursor erased from captures (2026-09-28, verified on device)
+- The OS bakes the mouse pointer into `takeScreenshot` (freeze frame) — it showed in area/screen
+  shots. `takeScreenshotOfWindow` does NOT include the pointer (verified: cursor centred over our
+  window, window shot is clean), so window captures were already fine.
+- Fix: the service now observes raw mouse motion (`FLAG_SEND_MOTION_EVENTS` +
+  `setMotionEventSources(SOURCE_MOUSE)`, `onMotionEvent` records screen-space `rawX/rawY`). On
+  freeze, `deCursor()` repaints the pointer's box (`cursorBox`, ~60x64 around the hotspot) with
+  clean pixels from `takeScreenshotOfWindow` of the top window under the pointer — identical to
+  what's beneath the sprite, so the cursor vanishes with no seam. No-op when the pointer is
+  unknown/stale (touch/keyboard-only, no cursor anyway) or over bare desktop (no app window).
+- Adds only a few ms (bar still shows in ~58 ms). Applies to area/screen/element (all crop the
+  frozen frame). Tried & rejected first: a null pointer-icon overlay — a stationary cursor's icon
+  isn't re-resolved without a mouse move, and we can't inject one at runtime.
+- Debug: `./ss debug cursortest 1 <tag>` (opaque-overlay + synthetic erase, safe self-check;
+  `isSolid` guards against ever saving real content). Failed-approach + verification detail in the
+  `googlebook-capture-apis` memory.
+
 ## Next — scrolling capture, first-run onboarding, then 0.2 release. (4b recording polish paused per user.)
 Remaining Phase 1 work:
 1. Capture engine: `takeScreenshot` (full/area-crop) and `takeScreenshotOfWindow`; ~333 ms limit.
