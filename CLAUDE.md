@@ -6,7 +6,8 @@ SDK 37), native Kotlin + Jetpack Compose, MIT. The floating **capture bar** is t
 (this VM is ephemeral; commit + push at every milestone).
 
 ## Where things are
-- Repo: `~/studiosnap`, GitHub **kuscher/studiosnap** (private, MIT).
+- Repo: `~/studiosnap`, GitHub **kuscher/studiosnap** (**public**, MIT). Anything committed is world-readable:
+  keep secrets, keys, personal hosts and IPs out of commits, docs and PRs.
 - Releases: GitHub Releases — v0.1 and **v0.2 published** (APK attached); newer fixes may be ahead
   of the published tag, so republish when the user asks.
 - **Release signing key:** `~/.config/studiosnap/keystore.jks` (+ `keystore.pass`), git-ignored.

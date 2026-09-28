@@ -4,7 +4,7 @@ The dev VM can restart and lose in-progress work, so this file is the source of 
 and how to continue. **Keep it current at every milestone**, and always `git push`.
 
 ## Where things live
-- Repo: `~/studiosnap`, GitHub `kuscher/studiosnap` (private, MIT).
+- Repo: `~/studiosnap`, GitHub `kuscher/studiosnap` (public, MIT).
 - Plan artifact: https://claude.ai/artifact/91HmujyCE6ScpqqU4F3aFB (UI/design source of truth).
 - Feasibility + device API research: `~/shotbook/` (`research/`, `probe/`) and memories
   `studiosnap`, `googlebook-capture-apis`.
