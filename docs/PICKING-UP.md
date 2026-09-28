@@ -165,8 +165,11 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
 - Record mode shows two toggles in the bar: **mic** (voice-over) and **system audio** (what apps
   play, via AudioPlaybackCapture on the same MediaProjection). Persisted in `Settings`
   (`recMic`, `recSystemAudio`); observable via `record/RecOptions`.
-- Permission: turning a toggle on without RECORD_AUDIO closes the bar (the system dialog draws
-  under our full-screen overlay), opens `PermissionActivity`, then reopens the bar in Record mode.
+- Permission: turning a toggle on without RECORD_AUDIO hides the bar (`ComposeOverlay.setHidden`:
+  invisible, untouchable, keys pass through; the system dialog draws under our overlay), opens
+  `PermissionActivity`, and brings the same bar back afterwards. Any runtime-permission change makes
+  Android RESTART this accessibility service (new object, all windows gone), so the bar's state
+  (frozen screen, mode, source) is also parked in `SnapService.parkedBar` and restored on connect.
   Denied leaves the toggle off with a toast. `RecordActivity` re-asks before consent if the
   permission was revoked while a toggle is on; a refusal records video only.
 - `RecordService` claims FGS type microphone only when audio is on AND permitted (asking for the
