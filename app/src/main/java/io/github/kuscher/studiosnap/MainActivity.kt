@@ -67,6 +67,34 @@ import io.github.kuscher.studiosnap.util.Settings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/** StudioSnap's coral brand mapped onto Material 3, so home/onboarding match the capture bar. */
+private val CoralLight = lightColorScheme(
+    primary = Color(0xFFC23B1A),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFFFDBCF),
+    onPrimaryContainer = Color(0xFF3E0B00),
+    secondary = Color(0xFF9C4527),
+    secondaryContainer = Color(0xFFFFDBCF),
+    onSecondaryContainer = Color(0xFF5A1A08),
+    surface = Color(0xFFFDF8F6),
+    onSurface = Color(0xFF201A18),
+    surfaceVariant = Color(0xFFF2E0D9),
+    onSurfaceVariant = Color(0xFF6B5A54),
+)
+private val CoralDark = darkColorScheme(
+    primary = Color(0xFFFF9275),
+    onPrimary = Color(0xFF2B0E06),
+    primaryContainer = Color(0xFF5C2618),
+    onPrimaryContainer = Color(0xFFFFDBCF),
+    secondary = Color(0xFFE7BDB0),
+    secondaryContainer = Color(0xFF5C2618),
+    onSecondaryContainer = Color(0xFFFFDBCF),
+    surface = Color(0xFF191210),
+    onSurface = Color(0xFFEDE0DB),
+    surfaceVariant = Color(0xFF3A2E29),
+    onSurfaceVariant = Color(0xFFD6C3BC),
+)
+
 class MainActivity : ComponentActivity() {
     // Re-checked on resume so the UI updates when the user returns from Accessibility settings.
     private val serviceOn = mutableStateOf(false)
@@ -80,7 +108,7 @@ class MainActivity : ComponentActivity() {
         serviceOn.value = !forceOff && isServiceEnabled(this)
         setContent {
             val dark = isSystemInDarkTheme()
-            MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
+            MaterialTheme(colorScheme = if (dark) CoralDark else CoralLight) {
                 Surface(Modifier.fillMaxSize()) {
                     val settings = remember { Settings(this) }
                     var onboarded by remember { mutableStateOf(settings.onboardingDone) }
