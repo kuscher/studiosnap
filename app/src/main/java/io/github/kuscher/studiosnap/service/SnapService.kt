@@ -24,6 +24,7 @@ import io.github.kuscher.studiosnap.capture.CaptureKind
 import io.github.kuscher.studiosnap.capture.CaptureSession
 import io.github.kuscher.studiosnap.capture.ScrollCapture
 import io.github.kuscher.studiosnap.capture.ElementInfo
+import io.github.kuscher.studiosnap.capture.OcrEngine
 import io.github.kuscher.studiosnap.capture.Output
 import io.github.kuscher.studiosnap.capture.WinInfo
 import io.github.kuscher.studiosnap.ui.CaptureMode
@@ -398,7 +399,7 @@ class SnapService : AccessibilityService() {
     }
 
     fun debugText(a: Int, b: Int, w: Int, h: Int) {
-        onText(Rect(a.toFloat(), b.toFloat(), (a + w).toFloat(), (b + h).toFloat()))
+        onText(null, Rect(a.toFloat(), b.toFloat(), (a + w).toFloat(), (b + h).toFloat()))
     }
 
     fun debugRecord() { startRecordFlow() }
@@ -483,6 +484,19 @@ class SnapService : AccessibilityService() {
             }
     }
 
+    /** adb-only: renders text to a bitmap and runs OCR on it, to verify the on-device recognizer. */
+    fun debugOcr() {
+        val w = 900; val h = 260
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(bmp); c.drawColor(android.graphics.Color.WHITE)
+        val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        p.color = android.graphics.Color.BLACK; p.textSize = 52f
+        c.drawText("StudioSnap OCR test 12345", 30f, 90f, p)
+        p.textSize = 40f
+        c.drawText("The quick brown fox.", 30f, 170f, p)
+        OcrEngine.recognize(bmp) { text -> Log.i(TAG, "ocr result: <<${text.replace("\n", " / ")}>>") }
+    }
+
     private fun testBitmap(): Bitmap {
         val w = 1920; val h = 1200
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
@@ -527,13 +541,23 @@ class SnapService : AccessibilityService() {
 
     // ---- text capture (exact text from accessibility nodes) ----
 
-    private fun onText(rect: Rect) {
+    private fun onText(bmp: Bitmap?, rect: Rect) {
         bg.execute {
-            val text = extractText(rect)
-            Output.copyText(this, text)
-            main.post { showText(text) }
-            Log.i(TAG, "text ${text.length} chars -> clipboard")
+            val nodeText = extractText(rect)
+            if (nodeText.length >= 2 || bmp == null) {
+                deliverText(nodeText, "a11y")
+            } else {
+                // Nothing selectable in the accessibility tree (image / canvas / PDF / remote
+                // desktop) — read the pixels with OCR.
+                OcrEngine.recognize(bmp) { ocr -> deliverText(ocr, "ocr") }
+            }
         }
+    }
+
+    private fun deliverText(text: String, src: String) {
+        Output.copyText(this, text)
+        main.post { showText(text) }
+        Log.i(TAG, "text[$src] ${text.length} chars -> clipboard")
     }
 
     private fun extractText(rect: Rect): String {
