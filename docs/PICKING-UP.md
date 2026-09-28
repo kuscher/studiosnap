@@ -152,7 +152,16 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
 - `./ss enable/disable` fixed to add/remove ONLY our a11y component (was overwriting the whole
   `enabled_accessibility_services`, disabling other apps like BarBook on the shared Googlebook).
 
-## Next — polish (scroll-capture progress HUD, card taskbar-dodge, home desktop layout) + 4b recording (paused per user).
+## Feedback round 2 (2026-09-28)
+- **OCR** (`capture/OcrEngine.kt`, ML Kit bundled Latin, offline, no INTERNET perm): Text source
+  runs exact a11y node text first, falls back to OCR on the captured pixels when there's none
+  (images/canvas/PDF/remote). Verified ~290ms on device. Release ~27MB (abiFilter x86_64+arm64).
+- **Result card → bottom-left** corner window (beside the system clipboard chip). A11y overlays
+  ignore gravity (centre), so it's offset-positioned via params.x/y; sized small so only the card
+  takes touches (the earlier full-screen card overlay ate all taps for 9s). Capped to one card.
+- Debug: `./ss debug ocr` (synthetic OCR self-test).
+
+## Next — republish release w/ these fixes when user OKs; polish (scroll progress HUD, home desktop layout) + 4b recording (paused).
 Remaining Phase 1 work:
 1. Capture engine: `takeScreenshot` (full/area-crop) and `takeScreenshotOfWindow`; ~333 ms limit.
 2. Selection layer in the full-screen overlay: freeze frame, dim outside, crosshair + loupe, W×H
