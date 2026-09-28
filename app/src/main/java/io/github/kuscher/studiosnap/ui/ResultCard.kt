@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -74,30 +77,26 @@ private fun ResultCard(card: CardData, onDismiss: () -> Unit, onCopy: () -> Unit
             .border(1.dp, hud.line, RoundedCornerShape(20.dp))
             .padding(9.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Box(
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 156.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(hud.track),
+                Modifier.fillMaxWidth().heightIn(max = 150.dp).clip(RoundedCornerShape(12.dp)).background(hud.track),
                 contentAlignment = Alignment.Center,
             ) {
                 Image(card.image, contentDescription = card.label, modifier = Modifier.fillMaxWidth(), contentScale = ContentScale.FillWidth)
-                Row(
-                    Modifier.fillMaxWidth().padding(6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    // hover would reveal these; shown always for now
-                    ActionChip(Sym.CONTENT_COPY, "Copy", onCopy)
-                    ActionChip(Sym.EDIT, "Annotate", onEdit)
-                    Box(Modifier.weight(1f))
-                    ActionChip(Sym.CLOSE, "Dismiss", onDismiss)
-                }
+                // Dismiss stays on the image, top-right, on a solid dark chip so it reads on any shot.
+                Box(
+                    Modifier.align(Alignment.TopEnd).padding(6.dp).size(28.dp).clip(CircleShape)
+                        .background(Color(0x99000000)).clickable(onClick = onDismiss),
+                    contentAlignment = Alignment.Center,
+                ) { SymText(Sym.CLOSE, size = 16, color = Color.White) }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                HudText(card.label, size = 12, color = hud.muted, modifier = Modifier.weight(1f))
+            // Coloured actions below the image (not floating over it).
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                ActionButton("Copy", Sym.CONTENT_COPY, hud.primary, hud.onPrimary, onCopy)
+                ActionButton("Edit", Sym.EDIT, hud.selBg, hud.selInk, onEdit)
+            }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                HudText(card.label, size = 11, color = hud.muted, modifier = Modifier.weight(1f))
                 if (card.copied) StatusChip(Sym.CONTENT_COPY, "Copied")
                 if (card.saved) StatusChip(Sym.CHECK, "Saved")
             }
@@ -106,13 +105,13 @@ private fun ResultCard(card: CardData, onDismiss: () -> Unit, onCopy: () -> Unit
 }
 
 @Composable
-private fun ActionChip(glyph: String, cd: String, onClick: () -> Unit) {
-    Box(
-        Modifier
-            .background(Color(0xF0FFFFFF), RoundedCornerShape(20.dp))
-            .clip(RoundedCornerShape(20.dp)),
+private fun ActionButton(label: String, glyph: String, bg: Color, fg: Color, onClick: () -> Unit) {
+    Row(
+        Modifier.clip(CircleShape).background(bg).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        HudButton(glyph, cd, diameter = 38, iconSize = 20, color = Color(0xFF1B1D22), onClick = onClick)
+        SymText(glyph, size = 16, color = fg)
+        HudText(label, size = 12, weight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = fg)
     }
 }
 
