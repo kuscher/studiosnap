@@ -49,6 +49,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Observer
 import io.github.kuscher.studiosnap.service.ComposeOverlay
 import io.github.kuscher.studiosnap.service.SnapService
 import io.github.kuscher.studiosnap.ui.SymText
@@ -77,6 +78,8 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
     private var cameras: List<CameraInfo> = emptyList()
     private var cameraId: String? = null
     private var snap: ValueAnimator? = null
+    /** The current preview's stream-state observer, removed when that preview goes away. */
+    private var streamObserver: Pair<PreviewView, Observer<PreviewView.StreamState>>? = null
 
     var large by mutableStateOf(settings.bubbleLarge)
         private set
@@ -159,11 +162,16 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
     internal fun onPreviewView(pv: PreviewView) {
         previewView = pv
         val owner = overlay ?: return
-        pv.previewStreamState.observe(owner) { Log.i(SnapService.TAG, "bubble stream $it") }
+        val observer = Observer<PreviewView.StreamState> { Log.i(SnapService.TAG, "bubble stream $it") }
+        pv.previewStreamState.observe(owner, observer)
+        streamObserver = pv to observer
         bindCamera()
     }
 
     internal fun onPreviewGone(pv: PreviewView) {
+        // Always drop this preview's observer (the overlay's lifecycle outlives each preview when
+        // the bubble is re-added); only unbind if it's still the current preview.
+        streamObserver?.takeIf { it.first === pv }?.let { (v, o) -> v.previewStreamState.removeObserver(o); streamObserver = null }
         if (previewView !== pv) return
         previewView = null
         runCatching { provider?.unbindAll() }
