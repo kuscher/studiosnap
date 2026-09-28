@@ -58,10 +58,19 @@ class SnapService : AccessibilityService() {
 
     private val settings by lazy { Settings(this) }
     private val recOptions by lazy { RecOptions(settings) }
+    /** Record was pressed and the recorder hasn't started yet (consent dialogs are up). */
+    private var recordPending = false
 
     override fun onServiceConnected() {
         instance = this
         Log.i(TAG, "connected: flags=0x${Integer.toHexString(serviceInfo.flags)} caps=0x${Integer.toHexString(serviceInfo.capabilities)}")
+        // Android can re-bind this service mid-flow (seen around permission dialogs), which tears
+        // down its overlays. Put back what a running recording needs, and finish a permission
+        // request that was answered while the service was away.
+        main.post {
+            if (io.github.kuscher.studiosnap.record.RecordingBus.active) showRecordingControls()
+            consumePendingPermission()
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
@@ -643,7 +652,14 @@ class SnapService : AccessibilityService() {
         Log.i(TAG, "rec toggle ${t.name}=$on")
     }
 
-    fun onPermissionResult(t: RecToggle, granted: Boolean) {
+    /** Applies a permission answer that [io.github.kuscher.studiosnap.PermissionActivity] parked. */
+    fun consumePendingPermission() {
+        val (t, granted) = pendingPermission ?: return
+        pendingPermission = null
+        onPermissionResult(t, granted)
+    }
+
+    private fun onPermissionResult(t: RecToggle, granted: Boolean) {
         Log.i(TAG, "permission for ${t.name}: granted=$granted")
         recOptions.reload()  // PermissionActivity already saved the toggle on a grant
         if (!granted) {
@@ -653,6 +669,14 @@ class SnapService : AccessibilityService() {
     }
 
     private fun startRecordFlow() {
+        if (recordPending || io.github.kuscher.studiosnap.record.RecordService.instance != null) {
+            // One recording at a time: a second start would replace the running session.
+            Log.i(TAG, "record ignored: a recording is already starting, running or saving")
+            android.widget.Toast.makeText(this, "Already recording", android.widget.Toast.LENGTH_SHORT).show()
+            dismissCapture()
+            return
+        }
+        recordPending = true
         dismissCapture()
         startActivity(
             android.content.Intent(this, io.github.kuscher.studiosnap.RecordActivity::class.java)
@@ -661,12 +685,34 @@ class SnapService : AccessibilityService() {
     }
 
     fun onRecordingStarted() {
-        val ov = recordOverlay ?: ComposeOverlay(this).also { recordOverlay = it }
+        recordPending = false
+        showRecordingControls()
+    }
+
+    /**
+     * The recording pill, in a window only as big as the pill (top centre), so the rest of the
+     * screen stays clickable while recording: a full-screen overlay takes every touch, even where
+     * it's transparent. Accessibility overlays ignore gravity, so it's centred and offset upward.
+     */
+    private fun showRecordingControls() {
+        val density = resources.displayMetrics.density
+        val h = (PILL_HEIGHT_DP * density).toInt()
+        val screenH = getSystemService(WindowManager::class.java).maximumWindowMetrics.bounds.height()
+        val top = (PILL_TOP_DP * density).toInt()
+        val ov = recordOverlay ?: ComposeOverlay(
+            this,
+            widthSpec = WindowManager.LayoutParams.WRAP_CONTENT,
+            heightSpec = h,
+            gravity = Gravity.CENTER,
+            noLimits = false,
+            offsetY = top + h / 2 - screenH / 2,
+        ).also { recordOverlay = it }
         ov.show { RecordRoot(dark = isNight()) }
     }
 
     fun onRecordingSaved(ok: Boolean, durationMs: Long, thumb: Bitmap?) {
         recordOverlay?.dismiss()
+        recordPending = false
         if (!ok) return
         val img = (thumb ?: Bitmap.createBitmap(600, 380, Bitmap.Config.ARGB_8888).also { it.eraseColor(0xFF2A2D33.toInt()) }).asImageBitmap()
         val s = durationMs / 1000
@@ -677,7 +723,11 @@ class SnapService : AccessibilityService() {
 
     companion object {
         const val TAG = "StudioSnap"
+        private const val PILL_HEIGHT_DP = 52
+        private const val PILL_TOP_DP = 24
         @Volatile var instance: SnapService? = null
             private set
+        /** A permission answer waiting for the service (it may be re-binding when it arrives). */
+        @Volatile var pendingPermission: Pair<RecToggle, Boolean>? = null
     }
 }

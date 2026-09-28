@@ -44,11 +44,24 @@ class AudioCapture private constructor(
             runCatching { AcousticEchoCanceler.create(mic!!.audioSessionId)?.apply { enabled = true } }.getOrNull()
         } else null
 
+    /**
+     * Starts capturing into [writer]. If the encoder or a source refuses to start, the audio
+     * track is dropped (the recording saves video only) and [onDone] still fires once.
+     */
     fun start(writer: Mp4Writer) {
         this.writer = writer
-        codec.start()
-        mic?.startRecording()
-        system?.startRecording()
+        try {
+            codec.start()
+            mic?.startRecording()
+            system?.startRecording()
+        } catch (e: Exception) {
+            Log.w(SnapService.TAG, "audio start failed, recording video only: $e")
+            runCatching { codec.stop() }
+            release()
+            writer.abandon()
+            onDone()
+            return
+        }
         Thread(::run, "ss-rec-audio").start()
     }
 
@@ -96,7 +109,13 @@ class AudioCapture private constructor(
                 frames += n
                 drain(eos = false)
             }
-            queue(out, 0, lastPtsUs + 1, eos = true)
+            // End-of-stream must reach the encoder (unlike a PCM chunk, it can't be dropped), so
+            // keep draining and retrying for up to a second while the encoder is backed up.
+            var sent = false
+            for (attempt in 0 until 10) {
+                if (queue(out, 0, lastPtsUs + 1, eos = true)) { sent = true; break }
+            }
+            if (!sent) Log.w(SnapService.TAG, "audio end-of-stream not accepted; the last few ms may be cut")
             drain(eos = true)
         } catch (e: Exception) {
             Log.w(SnapService.TAG, "audio capture failed: $e")
@@ -136,20 +155,25 @@ class AudioCapture private constructor(
         return if (pts <= lastPtsUs) lastPtsUs + 1 else pts
     }
 
-    private fun queue(pcm: ShortArray, frames: Int, ptsUs: Long, eos: Boolean) {
+    /** Hands a chunk (or end-of-stream) to the encoder; false if it had no free input buffer. */
+    private fun queue(pcm: ShortArray, frames: Int, ptsUs: Long, eos: Boolean): Boolean {
         var idx = -1
         for (attempt in 0 until 10) {
             idx = codec.dequeueInputBuffer(10_000)
             if (idx >= 0) break
             drain(eos = false)
         }
-        if (idx < 0) { Log.w(SnapService.TAG, "audio encoder busy, chunk dropped"); return }
+        if (idx < 0) {
+            if (!eos) Log.w(SnapService.TAG, "audio encoder busy, chunk dropped")
+            return false
+        }
         val buf = codec.getInputBuffer(idx)!!
         buf.clear()
         val shorts = frames * CHANNELS
         buf.order(ByteOrder.nativeOrder()).asShortBuffer().put(pcm, 0, shorts)
         codec.queueInputBuffer(idx, 0, shorts * 2, ptsUs, if (eos) MediaCodec.BUFFER_FLAG_END_OF_STREAM else 0)
         lastPtsUs = ptsUs
+        return true
     }
 
     private fun drain(eos: Boolean) {
@@ -243,17 +267,18 @@ class AudioCapture private constructor(
                     .build()
             } else null
             if (mic == null && system == null) return null
-            val codec = try {
-                MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC).apply {
-                    val f = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, RATE, CHANNELS).apply {
-                        setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
-                        setInteger(MediaFormat.KEY_BIT_RATE, 160_000)
-                        setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, FRAMES * CHANNELS * 2 * 2)
-                    }
-                    configure(f, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            var codec: MediaCodec? = null
+            try {
+                codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC)
+                val f = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, RATE, CHANNELS).apply {
+                    setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
+                    setInteger(MediaFormat.KEY_BIT_RATE, 160_000)
+                    setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, FRAMES * CHANNELS * 2 * 2)
                 }
+                codec.configure(f, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             } catch (e: Exception) {
                 Log.w(SnapService.TAG, "AAC encoder unavailable: $e")
+                runCatching { codec?.release() }
                 mic?.release(); system?.release()
                 return null
             }
