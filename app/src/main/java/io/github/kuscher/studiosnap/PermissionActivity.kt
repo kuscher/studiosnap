@@ -5,13 +5,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import io.github.kuscher.studiosnap.record.RecOptions
 import io.github.kuscher.studiosnap.record.RecToggle
 import io.github.kuscher.studiosnap.service.SnapService
+import io.github.kuscher.studiosnap.util.Settings
 
 /**
  * Transparent trampoline that asks for the runtime permission a Record-mode toggle needs (the
- * accessibility service can't show the system dialog itself), then reports back to [SnapService],
- * which turns the toggle on and reopens the bar.
+ * accessibility service can't show the system dialog itself). A grant turns the toggle on in
+ * [Settings]; then [SnapService] reopens the bar.
  */
 class PermissionActivity : Activity() {
     private lateinit var toggle: RecToggle
@@ -32,7 +34,13 @@ class PermissionActivity : Activity() {
     }
 
     private fun done(granted: Boolean) {
-        SnapService.instance?.onPermissionResult(toggle, granted)
+        // Save the toggle here, not in the service: Android can briefly re-bind the accessibility
+        // service around the permission dialog, so SnapService.instance may be null right now.
+        if (granted) RecOptions.persist(Settings(this), toggle, true)
+        val t = toggle
+        val report = { SnapService.instance?.onPermissionResult(t, granted) }
+        if (SnapService.instance != null) report()
+        else android.os.Handler(mainLooper).postDelayed({ report() }, 1000)
         finish()
     }
 

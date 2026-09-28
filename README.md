@@ -78,7 +78,7 @@ To update, just install a newer `StudioSnap.apk` over the old one — your setti
 
 ## Privacy
 
-StudioSnap requests **no `INTERNET` permission** at all — screenshots, recordings, and OCR run entirely on your device and never reach a network. The accessibility service exists only to catch the capture hotkey and read the screen when you capture; it does not log or store your keystrokes or mouse. The **microphone** is used only while you record with the mic or system-audio toggle on (Android asks you first and shows its mic indicator while it's in use).
+StudioSnap requests **no `INTERNET` permission** at all — screenshots, recordings, and OCR run entirely on your device and never reach a network. The accessibility service exists only to catch the capture hotkey and read the screen when you capture; it does not log or store your keystrokes or mouse. The **microphone** is used only while you record with the mic toggle on (Android asks you first and shows its mic indicator while it's in use). **System audio** captures only the sound your apps play, never the mic, though Android files it under the same microphone permission.
 
 ## Build from source
 

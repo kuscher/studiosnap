@@ -279,7 +279,7 @@ class SnapService : AccessibilityService() {
 
     private fun newSession() = CaptureSession(
         this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::startRecordFlow, ::startScrollFlow, ::dismissCapture,
-        recOptions = recOptions, onRecToggle = ::toggleRec,
+        recOptions = recOptions.also { it.reload() }, onRecToggle = ::toggleRec,
     )
 
     private fun onResult(bmp: Bitmap, kind: CaptureKind, label: String) {
@@ -645,9 +645,8 @@ class SnapService : AccessibilityService() {
 
     fun onPermissionResult(t: RecToggle, granted: Boolean) {
         Log.i(TAG, "permission for ${t.name}: granted=$granted")
-        if (granted) {
-            recOptions.set(t, true)
-        } else {
+        recOptions.reload()  // PermissionActivity already saved the toggle on a grant
+        if (!granted) {
             android.widget.Toast.makeText(this, "${t.label} is off. Allow it for StudioSnap in App info › Permissions.", android.widget.Toast.LENGTH_LONG).show()
         }
         openBar(initialMode = CaptureMode.REC)
