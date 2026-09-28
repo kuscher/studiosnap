@@ -36,24 +36,25 @@ class CardData(
     val filePath: String? = null,
 )
 
-/** The bottom-left stack of result cards. Newest on top; each fades out after a few seconds. */
+/**
+ * The bottom-left stack of result cards — next to the system clipboard chip, so a copy reads as one
+ * thing. Hosted in a wrap-content corner window, so this is just the padded card column (the window
+ * handles docking); newest card sits on top.
+ */
 @Composable
 fun CardStack(
     cards: List<CardData>,
     dark: Boolean,
-    bottomInsetPx: Int = 0,
     onDismiss: (Long) -> Unit,
     onCopy: (CardData) -> Unit,
     onEdit: (CardData) -> Unit,
 ) {
     ProvideHud(dark) {
-        val extraBottom = with(androidx.compose.ui.platform.LocalDensity.current) { bottomInsetPx.toDp() }
-        Box(
-            Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + extraBottom),
-            contentAlignment = Alignment.BottomEnd,
-        ) {
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                cards.forEach { card ->
+        // Hosted in a small window already docked to the bottom-left (beside the system clipboard
+        // chip); bottom-align the newest card within it.
+        Box(Modifier.fillMaxSize().padding(6.dp), contentAlignment = Alignment.BottomStart) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                cards.asReversed().forEach { card ->
                     ResultCard(card, onDismiss = { onDismiss(card.id) }, onCopy = { onCopy(card) }, onEdit = { onEdit(card) })
                 }
             }

@@ -29,6 +29,15 @@ class ComposeOverlay(
     private val heightSpec: Int = WindowManager.LayoutParams.MATCH_PARENT,
     private val gravity: Int = Gravity.TOP or Gravity.START,
     private val blurRadius: Int = 0,
+    // Full-screen overlays need NO_LIMITS to cover cutouts/edges.
+    private val noLimits: Boolean = true,
+    // For a full-screen overlay that only shows content in one corner (the result card): let pointer
+    // events outside the touchable content fall through to the apps behind instead of being eaten.
+    private val touchThrough: Boolean = false,
+    // Accessibility overlays ignore gravity (they always centre), so a corner window is placed by
+    // offsetting from centre with these (pixels): +x right, +y down.
+    private val offsetX: Int = 0,
+    private val offsetY: Int = 0,
 ) : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
 
     private val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -48,11 +57,14 @@ class ComposeOverlay(
         width = widthSpec
         height = heightSpec
         this.gravity = gravity
+        x = offsetX
+        y = offsetY
         flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
-        layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
+            (if (noLimits) WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS else 0) or
+            (if (touchThrough) WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL else 0)
+        if (noLimits) layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
         if (blurRadius > 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             flags = flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
             blurBehindRadius = blurRadius
