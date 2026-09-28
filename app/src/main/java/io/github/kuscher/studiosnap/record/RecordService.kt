@@ -53,6 +53,7 @@ class RecordService : Service(), RecordController {
     private val tracksLeft = AtomicInteger(1)
     @Volatile private var stopRequested = false
     @Volatile private var stopAt = 0L
+    @Volatile private var stopPtsUs = Long.MAX_VALUE
     private var fgMicrophone = false
     @Volatile private var discarded = false
     private var startedAt = 0L
@@ -161,8 +162,8 @@ class RecordService : Service(), RecordController {
                 val idx = c.dequeueOutputBuffer(info, 10_000)
                 when {
                     idx == MediaCodec.INFO_TRY_AGAIN_LATER -> {
-                        // After Stop, an encoder that never emits end-of-stream must not keep the
-                        // file open forever.
+                        // After Stop, an encoder that never emits end-of-stream (and gets no new
+                        // frame to push it out) must not keep the file open forever.
                         if (stopRequested && SystemClock.elapsedRealtime() - stopAt > EOS_DEADLINE_MS) {
                             Log.w(SnapService.TAG, "video encoder gave no end-of-stream; finishing anyway")
                             break
@@ -170,14 +171,17 @@ class RecordService : Service(), RecordController {
                     }
                     idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> videoTrack = w.addTrack(c.outputFormat, required = true)
                     idx >= 0 -> {
+                        // Some encoders only emit end-of-stream after one more frame arrives, so a
+                        // frame from after Stop was pressed marks the end: it isn't recorded.
+                        val afterStop = stopRequested && info.presentationTimeUs > stopPtsUs && info.size > 0
                         try {
                             val buf = c.getOutputBuffer(idx)
                             if (info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) info.size = 0
-                            if (info.size > 0 && buf != null) w.write(videoTrack, buf, info)
+                            if (!afterStop && info.size > 0 && buf != null) w.write(videoTrack, buf, info)
                         } finally {
                             c.releaseOutputBuffer(idx, false)
                         }
-                        if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
+                        if (afterStop || info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
                     }
                 }
             }
@@ -201,6 +205,7 @@ class RecordService : Service(), RecordController {
         if (stopRequested) return
         stopRequested = true; discarded = discard
         stopAt = SystemClock.elapsedRealtime()
+        stopPtsUs = System.nanoTime() / 1000 // screen frames are stamped in this (monotonic) clock
         RecordingBus.active = false
         ticker.removeCallbacks(tick)
         audio?.stop()
@@ -295,7 +300,7 @@ class RecordService : Service(), RecordController {
         const val EXTRA_CODE = "code"
         const val EXTRA_DATA = "data"
         private const val ACTION_STOP = "io.github.kuscher.studiosnap.record.STOP"
-        private const val EOS_DEADLINE_MS = 3000L
+        private const val EOS_DEADLINE_MS = 1500L
         @Volatile var instance: RecordService? = null
             private set
 
