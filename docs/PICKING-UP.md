@@ -210,8 +210,13 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
 - No camera FGS: the accessibility binding gives the process the camera capability
   (`dumpsys activity processes` → `curCapability=LCMN-U-TI`). The camera binds to the overlay's
   lifecycle, so it only runs while the bubble is visible.
-- Z-order: a11y overlays stack in add order, so the bubble is re-added after the bar and the
-  recording pill (`bringToFront`).
+- Z-order: a11y overlays stack in add order, so the bubble is re-added after the bar when it
+  was already up (`bringToFront`). The pill is pill-sized now, so it doesn't need that.
+- With the camera on, `RecordActivity` asks for an entire-screen recording
+  (`MediaProjectionConfig.createConfigForDefaultDisplay()`): a "single app" recording would leave
+  the bubble out.
+- Known limit: the camera list is read when the camera binds, so a webcam plugged in while the
+  bubble is up gets its switch button the next time the bubble shows.
 - CameraX 1.6.2 adds ~2 MB to the release APK (29.2 MB).
 
 ## Next — republish release w/ these fixes when user OKs; polish (scroll progress HUD, home desktop layout) + 4b recording (paused).
