@@ -307,8 +307,11 @@ class SnapService : AccessibilityService() {
             if (initialMode != null) s.changeMode(initialMode)
             val ov = captureOverlay ?: ComposeOverlay(this).also { captureOverlay = it }
             ov.show { CaptureRoot(s, dark = isNight(), barAtTop = settings.barAtTop) }
+            // A bubble that was already up (say, mid-recording) is now under the bar: lift it.
+            // A new one is added after the bar, so it's on top already.
+            val wasShown = bubble.shown
             updateBubble()
-            bubble.bringToFront()
+            if (wasShown) bubble.bringToFront()
             Log.i(TAG, "bar shown in ${SystemClock.elapsedRealtime() - t0}ms frozen=${bmp != null} source=$initialSource mode=$initialMode")
         }
         if (dry) { present(null); return }
