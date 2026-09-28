@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- StudioSnap has NO INTERNET permission. Capture stays on the device. -->
+    <!-- StudioSnap has NO INTERNET permission. Capture stays on the device. ML Kit's usage
+         logging library (com.google.android.datatransport) merges INTERNET in; remove it. Its
+         uploads then just fail, and OCR runs on the bundled model. ACCESS_NETWORK_STATE, which it
+         also adds, stays: it can't send anything, and Android 14+ requires it for the network
+         constraint on the library's upload job (without it that schedule() call throws). -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <!-- Only used when you turn on the mic or system-audio toggle for a recording. -->
