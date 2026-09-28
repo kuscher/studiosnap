@@ -18,7 +18,12 @@ import java.nio.ByteBuffer
  * exception escaping into an encoder thread. Thread-safe: the video drain thread and the audio
  * thread both write here.
  */
-class Mp4Writer(path: String, private var expectedTracks: Int) {
+class Mp4Writer(
+    path: String,
+    private var expectedTracks: Int,
+    /** Called once, off the muxer lock's caller thread, when the file becomes unwritable. */
+    private val onFailed: () -> Unit = {},
+) {
     private val muxer = MediaMuxer(path, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
     private var added = 0
     private var started = false
@@ -107,8 +112,8 @@ class Mp4Writer(path: String, private var expectedTracks: Int) {
     private inline fun <T> guard(what: String, block: () -> T): T? = try {
         block()
     } catch (e: Exception) {
-        failed = true
         Log.w(SnapService.TAG, "muxer $what failed: $e")
+        if (!failed) { failed = true; onFailed() }
         null
     }
 

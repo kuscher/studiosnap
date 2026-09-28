@@ -81,7 +81,15 @@ class CaptureSession(
     }
 
     /** Called once the frozen frame is ready and the overlay is about to show. */
+    /**
+     * Record isn't accepted for a moment after the bar opens: a click or Enter still in flight
+     * from what opened it (a permission dialog, say) must not start a recording.
+     */
+    private var recordReadyAt = 0L
+    private fun recordReady() = android.os.SystemClock.uptimeMillis() >= recordReadyAt
+
     fun onFrozen(bmp: Bitmap?, initialSource: Source?) {
+        recordReadyAt = android.os.SystemClock.uptimeMillis() + RECORD_GRACE_MS
         frozenBmp = bmp
         frozen = bmp?.asImageBitmap()
         windows = listWindows()
@@ -166,7 +174,7 @@ class CaptureSession(
 
     fun tapAt(p: Offset): Boolean {
         // In Record mode a click anywhere records the screen (region/window recording not built yet).
-        if (mode == CaptureMode.REC) { onRecord(); finish(); return true }
+        if (mode == CaptureMode.REC) { if (recordReady()) { onRecord(); finish() }; return true }
         // A click without a drag grabs whatever is highlighted: a window, an element, or the screen.
         when (source) {
             Source.SCREEN -> { captureScreen(); return true }
@@ -182,7 +190,7 @@ class CaptureSession(
     }
 
     fun primary() {
-        if (mode == CaptureMode.REC) { onRecord(); finish(); return }
+        if (mode == CaptureMode.REC) { if (recordReady()) { onRecord(); finish() }; return }
         when (source) {
             Source.SCREEN -> captureScreen()
             Source.WINDOW -> hover?.winId?.let { id -> windows.find { it.id == id }?.let { captureWindow(it) } }
@@ -243,5 +251,9 @@ class CaptureSession(
         val l = minOf(x0, x1).coerceIn(0f, maxW); val t = minOf(y0, y1).coerceIn(0f, maxH)
         val rr = maxOf(x0, x1).coerceIn(0f, maxW); val bb = maxOf(y0, y1).coerceIn(0f, maxH)
         return Rect(l, t, rr, bb)
+    }
+
+    private companion object {
+        const val RECORD_GRACE_MS = 400L
     }
 }
