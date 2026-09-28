@@ -23,7 +23,7 @@ data class Hover(val rect: Rect, val label: String, val isElement: Boolean, val 
 enum class SelPhase { AIM, DRAG, ADJUST }
 
 /** The kind of result produced, for the card label and later routing. */
-enum class CaptureKind { AREA, ELEMENT, WINDOW, SCREEN }
+enum class CaptureKind { AREA, ELEMENT, WINDOW, SCREEN, SCROLL }
 
 /**
  * One capture session: the state behind the overlay while the bar is open. It freezes the screen
@@ -42,6 +42,7 @@ class CaptureSession(
     private val onResult: (Bitmap, CaptureKind, String) -> Unit,
     private val onText: (Rect) -> Unit = {},
     private val onRecord: () -> Unit = {},
+    private val onScroll: (WinInfo) -> Unit = {},
     private val onDismiss: () -> Unit,
 ) {
     private val elementCache = HashMap<Int, List<ElementInfo>>()
@@ -160,6 +161,7 @@ class CaptureSession(
         when (source) {
             Source.SCREEN -> { captureScreen(); return true }
             Source.WINDOW -> { topWindowAt(p)?.let { captureWindow(it); return true } }
+            Source.SCROLL -> { topWindowAt(p)?.let { onScroll(it); return true } }
             Source.AREA, Source.TEXT -> {
                 val h = hover
                 if (h != null && h.isElement) { captureArea(h.rect, CaptureKind.ELEMENT); return true }
@@ -175,7 +177,7 @@ class CaptureSession(
             Source.SCREEN -> captureScreen()
             Source.WINDOW -> hover?.winId?.let { id -> windows.find { it.id == id }?.let { captureWindow(it) } }
             Source.AREA, Source.TEXT -> selection?.let { captureArea(it, CaptureKind.AREA) }
-            Source.SCROLL -> {} // Phase 3
+            Source.SCROLL -> hover?.winId?.let { id -> windows.find { it.id == id }?.let { onScroll(it) } }
         }
     }
 

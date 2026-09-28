@@ -93,7 +93,30 @@ Phase 2b/2c: DONE (text/crop/select-move tools, Frame/beautify panel w/ live pre
   `isSolid` guards against ever saving real content). Failed-approach + verification detail in the
   `googlebook-capture-apis` memory.
 
-## Next — scrolling capture, first-run onboarding, then 0.2 release. (4b recording polish paused per user.)
+## First-run onboarding (2026-09-28, verified on device)
+- `ui/OnboardingScreen.kt`: guided welcome (what it does + why) → "Turn on StudioSnap" opens
+  Accessibility settings (the app can't toggle the service itself). MainActivity re-checks the
+  service in `onResume`, so it flips to an "all set" state the moment the user returns with it on.
+  `Settings.onboardingDone` persists; after finishing/skipping, launches go to Home (which still
+  handles the service-off case). Debug: launch MainActivity with `--ez force_off true` to preview
+  the enable state while the service is actually on (so window screenshots work).
+
+## Scrolling capture (2026-09-28, verified on device)
+- `capture/ScrollCapture.kt`: grabs the scroll node's own region (so sticky headers/footers, which
+  sit outside it, never contaminate the stitch), scrolls forward, and stitches each frame by
+  matching the overlap between the previous bottom and the new top (per-row luma signature at 24
+  columns; picks the min-cost alignment, MIN_OVERLAP 24, MATCH_THRESHOLD 26). Stops when a scroll
+  adds < 8px, the node can't scroll, or 16 frames / 20000px. Async: window capture callback +
+  450ms settle between scrolls.
+- SnapService `findScrollable` (largest visible node with `isScrollable`/`ACTION_SCROLL_FORWARD`) +
+  `startScrollFlow` (dismiss bar → capture/scroll loop → `onResult(SCROLL)`); wired to the SCROLL
+  source's tap/primary. Falls back to a plain window shot when nothing scrolls.
+- Verified: self-test (`debug scrollself`) stitches 4 synthetic frames to a pixel-exact 540×2400
+  (meanRedDiff 0); real path (`debug scrollcap <win>`) captured the full enable-state onboarding
+  (540×1004, one scroll, seamless — content below the fold included). Note: no on-screen progress
+  HUD yet during the multi-second capture (the visible auto-scroll is the feedback) — v1.1 polish.
+
+## Next — 0.2 release (cursor-erase + onboarding + scrolling capture). (4b recording polish paused per user.)
 Remaining Phase 1 work:
 1. Capture engine: `takeScreenshot` (full/area-crop) and `takeScreenshotOfWindow`; ~333 ms limit.
 2. Selection layer in the full-screen overlay: freeze frame, dim outside, crosshair + loupe, W×H

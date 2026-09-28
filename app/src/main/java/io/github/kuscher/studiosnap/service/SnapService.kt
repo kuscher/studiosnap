@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import io.github.kuscher.studiosnap.capture.CaptureKind
 import io.github.kuscher.studiosnap.capture.CaptureSession
+import io.github.kuscher.studiosnap.capture.ScrollCapture
 import io.github.kuscher.studiosnap.capture.ElementInfo
 import io.github.kuscher.studiosnap.capture.Output
 import io.github.kuscher.studiosnap.capture.WinInfo
@@ -255,6 +256,83 @@ class SnapService : AccessibilityService() {
         }
     }
 
+    // ---- scrolling capture ----
+
+    /** The largest visible scrollable node in a window (the main scroll container). */
+    private fun findScrollable(winId: Int): AccessibilityNodeInfo? {
+        val all = windowsOnAllDisplays
+        var target: AccessibilityWindowInfo? = null
+        loop@ for (i in 0 until all.size()) for (w in all.valueAt(i)) if (w.id == winId) { target = w; break@loop }
+        val root = target?.root ?: return null
+        var best: AccessibilityNodeInfo? = null; var bestArea = 0
+        val q = ArrayDeque<AccessibilityNodeInfo>(); q.add(root)
+        val r = android.graphics.Rect(); var n = 0
+        while (q.isNotEmpty() && n < 4000) {
+            val node = q.removeFirst(); n++
+            val canScroll = node.isScrollable ||
+                node.actionList.any { it.id == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD }
+            if (canScroll && node.isVisibleToUser) {
+                node.getBoundsInScreen(r)
+                val area = r.width() * r.height()
+                if (area > bestArea) { bestArea = area; best = node }
+            }
+            for (c in 0 until node.childCount) node.getChild(c)?.let { q.add(it) }
+        }
+        return best
+    }
+
+    /** Runs a scrolling capture on [win]: finds its scroll container, then stitches successive
+     *  forward-scrolled frames into one tall image. Falls back to a plain window shot if nothing
+     *  scrolls. Dismisses the bar first so it never appears in the frames. */
+    private fun startScrollFlow(win: WinInfo) {
+        val node = findScrollable(win.id)
+        if (node == null) {
+            Log.i(TAG, "scroll: no scrollable in '${win.label}', capturing window once")
+            dismissCapture()
+            captureWindow(win.id) { bmp -> if (bmp != null) onResult(bmp, CaptureKind.WINDOW, "Window \u00b7 ${win.label}") }
+            return
+        }
+        val b = android.graphics.Rect(); node.getBoundsInScreen(b)
+        val ox = win.rect.left.toInt(); val oy = win.rect.top.toInt()
+        val local = android.graphics.Rect(
+            (b.left - ox).coerceAtLeast(0), (b.top - oy).coerceAtLeast(0),
+            (b.right - ox), (b.bottom - oy),
+        )
+        dismissCapture()
+        Log.i(TAG, "scroll: '${win.label}' region=$local")
+        main.postDelayed({
+            ScrollCapture(
+                main, win.id, local, ::captureWindow,
+                scrollForward = { findScrollable(win.id)?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) ?: false },
+                log = { Log.i(TAG, "scroll: $it") },
+            ).run { bmp ->
+                if (bmp != null) { Log.i(TAG, "scroll: done ${bmp.width}x${bmp.height}"); onResult(bmp, CaptureKind.SCROLL, "Scrolling capture") }
+                else Log.w(TAG, "scroll: null result")
+            }
+        }, 150)
+    }
+
+    fun debugScroll(substr: String) {
+        val win = listWindows().firstOrNull { it.label.contains(substr, true) } ?: run { Log.w(TAG, "scroll: no window '$substr'"); return }
+        val node = findScrollable(win.id) ?: run { Log.w(TAG, "scroll(debug): no scrollable in '${win.label}'"); return }
+        val b = android.graphics.Rect(); node.getBoundsInScreen(b)
+        val ox = win.rect.left.toInt(); val oy = win.rect.top.toInt()
+        val local = android.graphics.Rect((b.left - ox).coerceAtLeast(0), (b.top - oy).coerceAtLeast(0), (b.right - ox), (b.bottom - oy))
+        Log.i(TAG, "scroll(debug): '${win.label}' region=$local")
+        ScrollCapture(
+            main, win.id, local, ::captureWindow,
+            scrollForward = { findScrollable(win.id)?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) ?: false },
+            log = { Log.i(TAG, "scroll: $it") },
+        ).run { bmp ->
+            if (bmp != null) {
+                val dir = java.io.File(cacheDir, "shots").apply { mkdirs() }
+                val f = java.io.File(dir, "scroll.png")
+                java.io.FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                Log.i(TAG, "scroll(debug): ${bmp.width}x${bmp.height} -> ${f.absolutePath}")
+            } else Log.w(TAG, "scroll(debug): null result")
+        }
+    }
+
     // ---- overlay control ----
 
     /** [dry] = don't freeze the screen (transparent backdrop); used only for visual checks so an
@@ -263,7 +341,7 @@ class SnapService : AccessibilityService() {
         if (barShown()) return
         val t0 = SystemClock.elapsedRealtime()
         val present = { bmp: Bitmap? ->
-            val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::startRecordFlow, ::dismissCapture)
+            val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::startRecordFlow, ::startScrollFlow, ::dismissCapture)
             session = s
             s.onFrozen(bmp, initialSource)
             val ov = captureOverlay ?: ComposeOverlay(this).also { captureOverlay = it }
@@ -344,7 +422,7 @@ class SnapService : AccessibilityService() {
 
     fun openBarTest() {
         if (barShown()) return
-        val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::startRecordFlow, ::dismissCapture)
+        val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::startRecordFlow, ::startScrollFlow, ::dismissCapture)
         session = s
         s.onFrozen(testBitmap(), Source.AREA)
         val ov = captureOverlay ?: ComposeOverlay(this).also { captureOverlay = it }
@@ -462,6 +540,39 @@ class SnapService : AccessibilityService() {
                 ov.destroy()
             }
         }, 400L)
+    }
+
+    /** adb-only: drives the REAL ScrollCapture loop (overlap + stitch) with synthetic frames cut
+     *  from a tall source at known offsets, then checks the reconstruction matches the source. No
+     *  screen content involved. */
+    fun debugScrollSelfTest() {
+        val w = 540; val hs = 2400; val vh = 819
+        val src = Bitmap.createBitmap(w, hs, Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(src); val pnt = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        for (y in 0 until hs) {
+            pnt.color = android.graphics.Color.rgb(30 + y * 200 / hs, 60, 200 - y * 160 / hs)
+            c.drawRect(0f, y.toFloat(), w.toFloat(), (y + 1).toFloat(), pnt)
+        }
+        pnt.color = 0x33FFFFFF; var yb = 0; while (yb < hs) { c.drawRect(0f, yb.toFloat(), w.toFloat(), (yb + 2).toFloat(), pnt); yb += 40 }
+        pnt.color = android.graphics.Color.WHITE; pnt.textSize = 34f
+        var yy = 44; while (yy < hs) { c.drawText("row $yy", 24f, yy.toFloat(), pnt); yy += 80 }
+
+        val offs = intArrayOf(0, 600, 1200, 1581)
+        val frames = offs.map { Bitmap.createBitmap(src, 0, it, w, vh) }
+        var idx = 0
+        val fakeCapture: (Int, (Bitmap?) -> Unit) -> Unit = { _, cb -> cb(frames.getOrNull(idx)) }
+        val fakeScroll: () -> Boolean = { if (idx < frames.size - 1) { idx++; true } else false }
+        ScrollCapture(main, 0, android.graphics.Rect(0, 0, w, vh), fakeCapture, fakeScroll, log = { Log.i(TAG, "selftest: $it") })
+            .run { out ->
+                if (out == null) { Log.w(TAG, "selftest: null"); return@run }
+                val hh = minOf(out.height, hs); var diff = 0L; var n = 0
+                var y = 0; while (y < hh) { var x = 0; while (x < w) {
+                    diff += Math.abs(((out.getPixel(x, y) shr 16) and 0xFF) - ((src.getPixel(x, y) shr 16) and 0xFF)); n++; x += 60 }; y += 30 }
+                val dir = java.io.File(cacheDir, "shots").apply { mkdirs() }
+                val f = java.io.File(dir, "scrollself.png")
+                java.io.FileOutputStream(f).use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                Log.i(TAG, "selftest: out=${out.width}x${out.height} expected=${w}x$hs meanRedDiff=${if (n > 0) diff / n else -1} -> ${f.absolutePath}")
+            }
     }
 
     private fun testBitmap(): Bitmap {
