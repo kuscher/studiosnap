@@ -58,12 +58,30 @@ class SnapService : AccessibilityService() {
 
     private val settings by lazy { Settings(this) }
     private val recOptions by lazy { RecOptions(settings) }
-    /** Record was pressed and the recorder hasn't started yet (consent dialogs are up). */
-    private var recordPending = false
+    override fun onCreate() {
+        super.onCreate()
+        Log.i(TAG, "service created ${id()}")
+    }
+
+    override fun onDestroy() {
+        Log.i(TAG, "service destroyed ${id()}")
+        super.onDestroy()
+    }
+
+    /** Short identity for logs: Android recreates this service around some dialogs. */
+    private fun id() = Integer.toHexString(System.identityHashCode(this))
+
+    /**
+     * True between connect and unbind. Android can destroy this service object and create a new
+     * one around permission and consent dialogs; a late callback on the old object (a screenshot,
+     * a permission answer) must not put windows on screen that nothing alive can remove.
+     */
+    @Volatile private var alive = false
 
     override fun onServiceConnected() {
         instance = this
-        Log.i(TAG, "connected: flags=0x${Integer.toHexString(serviceInfo.flags)} caps=0x${Integer.toHexString(serviceInfo.capabilities)}")
+        alive = true
+        Log.i(TAG, "connected ${id()}: flags=0x${Integer.toHexString(serviceInfo.flags)} caps=0x${Integer.toHexString(serviceInfo.capabilities)}")
         // Android can re-bind this service mid-flow (seen around permission dialogs), which tears
         // down its overlays. Put back what a running recording needs, and finish a permission
         // request that was answered while the service was away.
@@ -77,6 +95,8 @@ class SnapService : AccessibilityService() {
     override fun onInterrupt() {}
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
+        Log.i(TAG, "unbind ${id()}")
+        alive = false
         closeBar()
         captureOverlay?.destroy(); captureOverlay = null
         cardsOverlay?.destroy(); cardsOverlay = null
@@ -271,9 +291,10 @@ class SnapService : AccessibilityService() {
     /** [dry] = don't freeze the screen (transparent backdrop); used only for visual checks so an
      *  overlay screenshot shows StudioSnap's own UI and never the user's apps. */
     fun openBar(initialSource: Source? = null, dry: Boolean = false, initialMode: CaptureMode? = null) {
-        if (barShown()) return
+        if (!alive || barShown()) return
         val t0 = SystemClock.elapsedRealtime()
-        val present = { bmp: Bitmap? ->
+        val present = present@{ bmp: Bitmap? ->
+            if (!alive) return@present // unbound while the screenshot was in flight
             val s = newSession()
             session = s
             s.onFrozen(bmp, initialSource)
@@ -654,6 +675,7 @@ class SnapService : AccessibilityService() {
 
     /** Applies a permission answer that [io.github.kuscher.studiosnap.PermissionActivity] parked. */
     fun consumePendingPermission() {
+        if (!alive) return // the new service object applies it when it connects
         val (t, granted) = pendingPermission ?: return
         pendingPermission = null
         onPermissionResult(t, granted)
@@ -695,6 +717,7 @@ class SnapService : AccessibilityService() {
      * it's transparent. Accessibility overlays ignore gravity, so it's centred and offset upward.
      */
     private fun showRecordingControls() {
+        if (!alive) return
         val density = resources.displayMetrics.density
         val h = (PILL_HEIGHT_DP * density).toInt()
         val screenH = getSystemService(WindowManager::class.java).maximumWindowMetrics.bounds.height()
@@ -727,6 +750,14 @@ class SnapService : AccessibilityService() {
         private const val PILL_TOP_DP = 24
         @Volatile var instance: SnapService? = null
             private set
+        /**
+         * Record was pressed and the recorder hasn't started (the consent dialog is up). Process-
+         * wide, so it survives the service being recreated; cleared when the recording starts,
+         * when consent is refused, or when [io.github.kuscher.studiosnap.RecordActivity] goes away
+         * without an answer (say, its app window was closed from the taskbar).
+         */
+        @Volatile var recordPending = false
+
         /** A permission answer waiting for the service (it may be re-binding when it arrives). */
         @Volatile var pendingPermission: Pair<RecToggle, Boolean>? = null
     }

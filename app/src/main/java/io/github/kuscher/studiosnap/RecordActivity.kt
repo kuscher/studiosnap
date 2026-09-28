@@ -20,6 +20,7 @@ import io.github.kuscher.studiosnap.util.Settings
 class RecordActivity : Activity() {
     private val request = 41
     private val audioRequest = 43
+    private var answered = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,12 +43,25 @@ class RecordActivity : Activity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        answered = true
         if (requestCode == request && resultCode == RESULT_OK && data != null) {
             RecordService.start(this, resultCode, data)
         } else {
             Log.i(SnapService.TAG, "recording consent cancelled")
+            SnapService.recordPending = false
             SnapService.instance?.onRecordingSaved(false, 0L, null)
         }
         finish()
+    }
+
+    override fun onDestroy() {
+        // Closed without an answer (its app window closed from the taskbar, say): nothing else
+        // will ever report back, so cancel the pending recording here.
+        if (!answered && !isChangingConfigurations) {
+            Log.i(SnapService.TAG, "recording consent abandoned")
+            SnapService.recordPending = false
+            SnapService.instance?.onRecordingSaved(false, 0L, null)
+        }
+        super.onDestroy()
     }
 }

@@ -138,7 +138,15 @@ class RecordService : Service(), RecordController {
         audio = a
         val tracks = if (a != null) 2 else 1
         tracksLeft.set(tracks)
-        val wr = Mp4Writer(cacheFile.absolutePath, tracks)
+        // A file that can't be written (a full disk, say) ends the recording now, not at Stop.
+        val wr = Mp4Writer(cacheFile.absolutePath, tracks) {
+            ticker.post {
+                if (!stopRequested) {
+                    android.widget.Toast.makeText(this, "Recording stopped: couldn't write the file", android.widget.Toast.LENGTH_LONG).show()
+                    stop()
+                }
+            }
+        }
         writer = wr
 
         virtualDisplay = proj.createVirtualDisplay(
@@ -159,24 +167,24 @@ class RecordService : Service(), RecordController {
             if (c == null || w == null) return
             val info = MediaCodec.BufferInfo()
             while (true) {
+                // After Stop, an encoder that never emits end-of-stream (and gets no new frame to
+                // push it out) must not keep the file open forever, whatever else it returns.
+                if (stopRequested && SystemClock.elapsedRealtime() - stopAt > EOS_DEADLINE_MS) {
+                    Log.w(SnapService.TAG, "video encoder gave no end-of-stream; finishing anyway")
+                    break
+                }
                 val idx = c.dequeueOutputBuffer(info, 10_000)
                 when {
-                    idx == MediaCodec.INFO_TRY_AGAIN_LATER -> {
-                        // After Stop, an encoder that never emits end-of-stream (and gets no new
-                        // frame to push it out) must not keep the file open forever.
-                        if (stopRequested && SystemClock.elapsedRealtime() - stopAt > EOS_DEADLINE_MS) {
-                            Log.w(SnapService.TAG, "video encoder gave no end-of-stream; finishing anyway")
-                            break
-                        }
-                    }
+                    idx == MediaCodec.INFO_TRY_AGAIN_LATER -> {}
                     idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> videoTrack = w.addTrack(c.outputFormat, required = true)
                     idx >= 0 -> {
                         // Some encoders only emit end-of-stream after one more frame arrives, so a
                         // frame from after Stop was pressed marks the end: it isn't recorded.
-                        val afterStop = stopRequested && info.presentationTimeUs > stopPtsUs && info.size > 0
+                        val config = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
+                        val afterStop = !config && stopRequested && info.presentationTimeUs > stopPtsUs && info.size > 0
                         try {
                             val buf = c.getOutputBuffer(idx)
-                            if (info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) info.size = 0
+                            if (config) info.size = 0
                             if (!afterStop && info.size > 0 && buf != null) w.write(videoTrack, buf, info)
                         } finally {
                             c.releaseOutputBuffer(idx, false)
@@ -203,9 +211,12 @@ class RecordService : Service(), RecordController {
 
     private fun requestStop(discard: Boolean) {
         if (stopRequested) return
-        stopRequested = true; discarded = discard
+        // Everything the drain thread reads is set before the flag it checks (it reads the flag
+        // first, then these).
+        discarded = discard
         stopAt = SystemClock.elapsedRealtime()
         stopPtsUs = System.nanoTime() / 1000 // screen frames are stamped in this (monotonic) clock
+        stopRequested = true
         RecordingBus.active = false
         ticker.removeCallbacks(tick)
         audio?.stop()
@@ -265,7 +276,8 @@ class RecordService : Service(), RecordController {
             uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values) ?: throw IllegalStateException("insert returned null")
             val out = resolver.openOutputStream(uri) ?: throw IllegalStateException("no output stream")
             out.use { o -> file.inputStream().use { it.copyTo(o) } }
-            values.clear(); values.put(MediaStore.Video.Media.IS_PENDING, 0); resolver.update(uri, values, null, null)
+            values.clear(); values.put(MediaStore.Video.Media.IS_PENDING, 0)
+            if (resolver.update(uri, values, null, null) != 1) throw IllegalStateException("publish updated no row")
             Log.i(SnapService.TAG, "recording saved -> Movies/StudioSnap")
             uri
         } catch (e: Exception) {
