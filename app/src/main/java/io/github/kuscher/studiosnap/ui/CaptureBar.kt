@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -23,6 +24,7 @@ import io.github.kuscher.studiosnap.util.Sym
 enum class CaptureMode { SHOT, REC }
 enum class Source(val glyph: String, val label: String) {
     AREA(Sym.SCREENSHOT_REGION, "Area"),
+    SECTION(Sym.ADS_CLICK, "Sections"),
     WINDOW(Sym.SELECT_WINDOW, "Window"),
     SCREEN(Sym.FULLSCREEN, "Screen"),
     SCROLL(Sym.SWIPE_VERTICAL, "Scroll"),
@@ -47,6 +49,7 @@ private fun PrimaryButton(session: CaptureSession, enabled: Boolean, onClick: ()
             .padding(start = 6.dp)
             .height(48.dp)
             .background(if (enabled) bg else bg.copy(alpha = 0.5f), CircleShape)
+            .clip(CircleShape)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(start = 14.dp, end = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -117,6 +120,7 @@ private fun RowScope.ModeButton(session: CaptureSession, mode: CaptureMode, glyp
     Row(
         modifier = Modifier
             .height(40.dp)
+            .clip(CircleShape)
             .background(if (on) hud.selBg else Color.Transparent, CircleShape)
             .clickable { session.changeMode(mode) }
             .padding(horizontal = if (on) 14.dp else 10.dp),
@@ -135,6 +139,7 @@ private fun SourceButton(session: CaptureSession, src: Source) {
     Row(
         modifier = Modifier
             .height(44.dp)
+            .clip(CircleShape)
             .background(if (on) hud.selBg else Color.Transparent, CircleShape)
             .clickable { session.changeSource(src) }
             .padding(horizontal = if (on) 12.dp else 11.dp),

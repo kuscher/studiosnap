@@ -10,7 +10,6 @@ import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import android.view.Display
-import android.view.Gravity
 import android.view.KeyEvent
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
@@ -300,17 +299,20 @@ class SnapService : AccessibilityService() {
     }
 
     private fun ensureCardsOverlay() {
-        val density = resources.displayMetrics.density
-        val ov = cardsOverlay ?: ComposeOverlay(
-            this,
-            widthSpec = (340 * density).toInt(),
-            heightSpec = (560 * density).toInt(),
-            gravity = Gravity.BOTTOM or Gravity.START,
-        ).also { cardsOverlay = it }
+        // Full-screen overlay; the card docks itself to the corner (a fixed-size window gets
+        // centred by the system, which is why the card used to float mid-screen).
+        val ov = cardsOverlay ?: ComposeOverlay(this).also { cardsOverlay = it }
+        val bottomInset = runCatching {
+            val wm = getSystemService(WindowManager::class.java)
+            wm.currentWindowMetrics.windowInsets.getInsets(
+                android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.navigationBars(),
+            ).bottom
+        }.getOrDefault(0)
         ov.show {
             CardStack(
                 cards = cards,
                 dark = isNight(),
+                bottomInsetPx = bottomInset,
                 onDismiss = { id -> removeCard(id) },
                 onCopy = { /* re-copy handled below */ recopy(it) },
                 onEdit = { openStudio(it) },
@@ -415,6 +417,10 @@ class SnapService : AccessibilityService() {
                 if (element) "Download GPX" else "Window · Field Notes", element, 0,
             )
         }
+    }
+
+    fun debugMode(m: String) {
+        session?.changeMode(if (m == "rec") io.github.kuscher.studiosnap.ui.CaptureMode.REC else io.github.kuscher.studiosnap.ui.CaptureMode.SHOT)
     }
 
     fun debugAim(x: Int, y: Int) {

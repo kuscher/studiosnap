@@ -22,6 +22,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -146,6 +147,7 @@ fun HudButton(
         modifier = modifier
             .defaultMinSize(minWidth = diameter.dp, minHeight = diameter.dp)
             .size(diameter.dp)
+            .clip(CircleShape)
             .background(bg, CircleShape)
             .clickable(enabled = enabled, onClick = onClick)
             .semantics { this.contentDescription = contentDescription },

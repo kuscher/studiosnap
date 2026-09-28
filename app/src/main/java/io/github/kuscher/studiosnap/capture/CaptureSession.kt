@@ -62,8 +62,8 @@ class CaptureSession(
     var windows: List<WinInfo> = emptyList()
         private set
 
-    val recSources = listOf(Source.SCREEN, Source.WINDOW, Source.AREA)
-    val shotSources = listOf(Source.AREA, Source.WINDOW, Source.SCREEN, Source.SCROLL, Source.TEXT)
+    val recSources = listOf(Source.SCREEN)
+    val shotSources = listOf(Source.AREA, Source.SECTION, Source.WINDOW, Source.SCREEN, Source.SCROLL, Source.TEXT)
     val sources get() = if (mode == CaptureMode.REC) recSources else shotSources
 
     val displaySize get() = frozenBmp?.let { it.width to it.height }
@@ -92,7 +92,7 @@ class CaptureSession(
 
     fun changeMode(m: CaptureMode) {
         mode = m
-        if (m == CaptureMode.REC && source !in recSources) source = Source.AREA
+        if (m == CaptureMode.REC && source !in recSources) source = Source.SCREEN
         selection = null; phase = SelPhase.AIM
         hover = if (source == Source.SCREEN) Hover(fullRect(), "Display 1", false, null) else null
     }
@@ -112,7 +112,7 @@ class CaptureSession(
         hover = when (source) {
             Source.SCREEN -> Hover(fullRect(), "Display 1", false, null)
             Source.WINDOW, Source.SCROLL -> topWindowAt(p)?.let { Hover(it.rect, it.label, false, it.id) }
-            Source.AREA, Source.TEXT -> {
+            Source.SECTION -> {
                 val win = topWindowAt(p)
                 if (win == null) null
                 else {
@@ -122,12 +122,13 @@ class CaptureSession(
                         ?.let { Hover(it.rect, it.label, true, win.id) }
                 }
             }
+            Source.AREA, Source.TEXT -> null  // clean drag: no element highlighting
         }
     }
 
     fun onDragStart(p: Offset) {
         pointer = p
-        if (source == Source.WINDOW || source == Source.SCROLL || source == Source.SCREEN) return
+        if (source == Source.WINDOW || source == Source.SCROLL || source == Source.SCREEN || source == Source.SECTION) return
         selection = Rect(p, p); phase = SelPhase.DRAG; hover = null
     }
 
@@ -157,12 +158,14 @@ class CaptureSession(
     }
 
     fun tapAt(p: Offset): Boolean {
+        // In Record mode a click anywhere records the screen (region/window recording not built yet).
+        if (mode == CaptureMode.REC) { onRecord(); finish(); return true }
         // A click without a drag grabs whatever is highlighted: a window, an element, or the screen.
         when (source) {
             Source.SCREEN -> { captureScreen(); return true }
             Source.WINDOW -> { topWindowAt(p)?.let { captureWindow(it); return true } }
             Source.SCROLL -> { topWindowAt(p)?.let { onScroll(it); return true } }
-            Source.AREA, Source.TEXT -> {
+            Source.SECTION -> {
                 val h = hover
                 if (h != null && h.isElement) { captureArea(h.rect, CaptureKind.ELEMENT); return true }
             }
@@ -176,6 +179,7 @@ class CaptureSession(
         when (source) {
             Source.SCREEN -> captureScreen()
             Source.WINDOW -> hover?.winId?.let { id -> windows.find { it.id == id }?.let { captureWindow(it) } }
+            Source.SECTION -> hover?.let { if (it.isElement) captureArea(it.rect, CaptureKind.ELEMENT) }
             Source.AREA, Source.TEXT -> selection?.let { captureArea(it, CaptureKind.AREA) }
             Source.SCROLL -> hover?.winId?.let { id -> windows.find { it.id == id }?.let { onScroll(it) } }
         }
@@ -186,6 +190,7 @@ class CaptureSession(
             mode == CaptureMode.REC -> true
             source == Source.SCREEN -> true
             source == Source.WINDOW || source == Source.SCROLL -> hover?.winId != null
+            source == Source.SECTION -> hover?.isElement == true
             else -> phase == SelPhase.ADJUST && selection != null
         }
 
