@@ -31,8 +31,20 @@ install() {
   adb -s "$s" shell settings put global verifier_verify_adb_installs 1
 }
 
-enable()  { A shell "settings --user 10 put secure enabled_accessibility_services $SVC && settings --user 10 put secure accessibility_enabled 1"; echo "service enabled"; }
-disable() { A shell "settings --user 10 delete secure enabled_accessibility_services; settings --user 10 put secure accessibility_enabled 0"; echo "service disabled"; }
+# Add/remove ONLY our component in the colon-separated list, so we never switch off other
+# accessibility services (e.g. another app the user runs on the same Googlebook).
+a11y_list() { local c; c="$(A shell "settings get --user 10 secure enabled_accessibility_services" | tr -d '\r')"; [ "$c" = null ] && c=""; printf '%s' "$c"; }
+enable() {
+  local cur; cur="$(a11y_list)"
+  case ":$cur:" in *":$SVC:"*) ;; *) cur="${cur:+$cur:}$SVC";; esac
+  A shell "settings put --user 10 secure enabled_accessibility_services '$cur' && settings put --user 10 secure accessibility_enabled 1"
+  echo "service enabled"
+}
+disable() {
+  local out; out="$(a11y_list | tr ':' '\n' | grep -vFx "$SVC" | grep -v '^$' | paste -sd: -)"
+  A shell "settings put --user 10 secure enabled_accessibility_services '$out'"
+  echo "service disabled"
+}
 launch()  { A shell "am start --user 10 -n $PKG/.MainActivity" >/dev/null; }
 
 case "${1:-}" in
