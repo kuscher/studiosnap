@@ -76,22 +76,25 @@ Phase 2b/2c: DONE (text/crop/select-move tools, Frame/beautify panel w/ live pre
   GitHub release v0.1 has the APK. **Back up the keystore privately; store the password in the pw
   manager** (still TODO).
 
-## Mouse cursor erased from captures (2026-09-28, verified on device)
-- The OS bakes the mouse pointer into `takeScreenshot` (freeze frame) — it showed in area/screen
-  shots. `takeScreenshotOfWindow` does NOT include the pointer (verified: cursor centred over our
-  window, window shot is clean), so window captures were already fine.
-- Fix: the service now observes raw mouse motion (`FLAG_SEND_MOTION_EVENTS` +
-  `setMotionEventSources(SOURCE_MOUSE)`, `onMotionEvent` records screen-space `rawX/rawY`). On
-  freeze, `deCursor()` repaints the pointer's box (`cursorBox`, ~60x64 around the hotspot) with
-  clean pixels from `takeScreenshotOfWindow` of the top window under the pointer — identical to
-  what's beneath the sprite, so the cursor vanishes with no seam. No-op when the pointer is
-  unknown/stale (touch/keyboard-only, no cursor anyway) or over bare desktop (no app window).
-- Adds only a few ms (bar still shows in ~58 ms). Applies to area/screen/element (all crop the
-  frozen frame). Tried & rejected first: a null pointer-icon overlay — a stationary cursor's icon
-  isn't re-resolved without a mouse move, and we can't inject one at runtime.
-- Debug: `./ss debug cursortest 1 <tag>` (opaque-overlay + synthetic erase, safe self-check;
-  `isSolid` guards against ever saving real content). Failed-approach + verification detail in the
-  `googlebook-capture-apis` memory.
+## Mouse cursor in captures — REVERTED for privacy (2026-09-28)
+- The OS bakes the pointer into `takeScreenshot`, so it can show in area/screen shots.
+  `takeScreenshotOfWindow` never includes it, so **window captures are already cursor-free**.
+- A cursor-erase was built (track the pointer, repaint its box from the window surface) and it
+  worked — but it required the service to observe **all** mouse motion device-wide
+  (`FLAG_SEND_MOTION_EVENTS` + `setMotionEventSources(SOURCE_MOUSE)` + `onMotionEvent`), i.e.
+  continuous global input monitoring. The user flagged that (rightly) as overreach / a persistent
+  system indicator, so it was fully removed. Erasing the cursor without that monitoring would mean
+  compositing whole window surfaces onto the freeze, which overwrites window caption/controls and
+  relives content — a visual regression — so we do NOT do it. Connected flags dropped 0x4172 → 0x72.
+- Also removed the unused `flagRequestAccessibilityButton` (we never handled the a11y button;
+  `requestA11yBtn` is now false — one less always-on system affordance).
+- The key filter (`flagRequestFilterKeyEvents`) stays — it's required for the global Screenshot
+  hotkey and is minimal: `onKeyEvent` only checks for the hotkey and never logs or stores keys.
+- If cursor removal is wanted later, do it per-source from window surfaces (window already clean),
+  or add an opt-in that composites windows — but never via always-on input observation.
+- `./ss key` fix: `connect()`'s probe `adb` commands ran inside `$(...)` and swallowed the stdin
+  piped into `A shell "cat > json"`, so uinput got truncated JSON and the key never fired. Added
+  `</dev/null` to those probes (+ bumped the register delay to 1000ms). Now 3/3 reliable.
 
 ## First-run onboarding (2026-09-28, verified on device)
 - `ui/OnboardingScreen.kt`: guided welcome (what it does + why) → "Turn on StudioSnap" opens

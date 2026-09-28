@@ -3,7 +3,6 @@ package io.github.kuscher.studiosnap.service
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityService.ScreenshotResult
 import android.accessibilityservice.AccessibilityService.TakeScreenshotCallback
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.os.Handler
@@ -12,21 +11,14 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.Display
 import android.view.Gravity
-import android.view.InputDevice
 import android.view.KeyEvent
-import android.view.MotionEvent
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import io.github.kuscher.studiosnap.capture.CaptureKind
 import io.github.kuscher.studiosnap.capture.CaptureSession
@@ -58,9 +50,6 @@ class SnapService : AccessibilityService() {
     private var textOverlay: ComposeOverlay? = null
     private var recordOverlay: ComposeOverlay? = null
     private var session: CaptureSession? = null
-    /** Last known mouse-pointer position in screen coords, tracked to erase the cursor from freezes. */
-    @Volatile private var lastPointer: Offset? = null
-    @Volatile private var lastPointerAt = 0L
     private val cards = mutableStateListOf<CardData>()
     private var cardId = 0L
 
@@ -68,25 +57,11 @@ class SnapService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
-        // Observe raw mouse motion so we know where the pointer is at freeze time (to erase it).
-        runCatching {
-            val info = serviceInfo
-            info.flags = info.flags or AccessibilityServiceInfo.FLAG_SEND_MOTION_EVENTS
-            info.setMotionEventSources(InputDevice.SOURCE_MOUSE)
-            serviceInfo = info
-        }.onFailure { Log.w(TAG, "motion sources: $it") }
         Log.i(TAG, "connected: flags=0x${Integer.toHexString(serviceInfo.flags)} caps=0x${Integer.toHexString(serviceInfo.capabilities)}")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
     override fun onInterrupt() {}
-
-    override fun onMotionEvent(event: MotionEvent) {
-        if (event.isFromSource(InputDevice.SOURCE_MOUSE)) {
-            lastPointer = Offset(event.rawX, event.rawY)
-            lastPointerAt = SystemClock.elapsedRealtime()
-        }
-    }
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
         closeBar()
@@ -201,61 +176,6 @@ class SnapService : AccessibilityService() {
         })
     }
 
-    /** True when sampled points across the frame all match [color] — used only to confirm the
-     *  opaque test overlay fully covers the screen before a debug frame is ever saved. */
-    private fun isSolid(bmp: Bitmap, color: Int): Boolean {
-        val xs = intArrayOf(2, bmp.width / 2, bmp.width - 3)
-        val ys = intArrayOf(2, bmp.height / 3, bmp.height / 2, bmp.height - 3)
-        for (x in xs) for (y in ys) {
-            val px = bmp.getPixel(x, y)
-            if (Math.abs(android.graphics.Color.red(px) - android.graphics.Color.red(color)) > 8 ||
-                Math.abs(android.graphics.Color.green(px) - android.graphics.Color.green(color)) > 8 ||
-                Math.abs(android.graphics.Color.blue(px) - android.graphics.Color.blue(color)) > 8) return false
-        }
-        return true
-    }
-
-    /** The generous screen-space box that a mouse pointer sprite can occupy (it hangs down-right
-     *  of its hotspot; symmetric slack covers I-beam / resize cursors too). */
-    private fun cursorBox(x: Float, y: Float) = android.graphics.RectF(x - 20f, y - 20f, x + 40f, y + 44f)
-
-    private fun topWindowContaining(x: Float, y: Float): WinInfo? =
-        listWindows().filter { it.rect.left <= x && it.rect.top <= y && it.rect.right >= x && it.rect.bottom >= y }
-            .maxByOrNull { it.z }
-
-    /** Erases the OS mouse pointer from a freeze frame: window surfaces never contain the pointer,
-     *  so we repaint the cursor's box with clean pixels from the window beneath it. No-op when the
-     *  pointer is unknown/stale or sits over no app window (nothing safe to copy from). */
-    private fun deCursor(frozen: Bitmap?, cb: (Bitmap?) -> Unit) {
-        val bmp = frozen ?: return cb(null)
-        val p = lastPointer
-        if (p == null || SystemClock.elapsedRealtime() - lastPointerAt > 60_000L) return cb(bmp)
-        val win = topWindowContaining(p.x, p.y) ?: return cb(bmp)
-        captureWindow(win.id) { wbmp ->
-            if (wbmp == null) { cb(bmp); return@captureWindow }
-            val out = runCatching {
-                val o = bmp.copy(Bitmap.Config.ARGB_8888, true)
-                val c = android.graphics.Canvas(o)
-                val wl = win.rect.left; val wt = win.rect.top
-                val sx = if (wbmp.width > 0) win.rect.width / wbmp.width else 1f
-                val sy = if (wbmp.height > 0) win.rect.height / wbmp.height else 1f
-                val box = cursorBox(p.x, p.y)
-                val left = box.left.coerceAtLeast(wl); val top = box.top.coerceAtLeast(wt)
-                val right = box.right.coerceAtMost(win.rect.right); val bottom = box.bottom.coerceAtMost(win.rect.bottom)
-                if (right > left && bottom > top && sx > 0f && sy > 0f) {
-                    val src = android.graphics.Rect(
-                        ((left - wl) / sx).toInt(), ((top - wt) / sy).toInt(),
-                        ((right - wl) / sx).toInt(), ((bottom - wt) / sy).toInt(),
-                    )
-                    c.drawBitmap(wbmp, src, android.graphics.RectF(left, top, right, bottom), null)
-                    Log.i(TAG, "deCursor: erased pointer at ${p.x.toInt()},${p.y.toInt()} via win '${win.label}'")
-                }
-                o
-            }.getOrElse { Log.w(TAG, "deCursor: $it"); bmp }
-            cb(out)
-        }
-    }
-
     // ---- scrolling capture ----
 
     /** The largest visible scrollable node in a window (the main scroll container). */
@@ -349,9 +269,7 @@ class SnapService : AccessibilityService() {
             Log.i(TAG, "bar shown in ${SystemClock.elapsedRealtime() - t0}ms frozen=${bmp != null} source=$initialSource")
         }
         if (dry) { present(null); return }
-        // The OS bakes the mouse pointer into takeScreenshot; paint it back out using clean
-        // pixels from the window under the cursor before handing the frozen frame to the UI.
-        captureFullScreen(1) { bmp -> deCursor(bmp) { present(it) } }
+        captureFullScreen(1) { bmp -> present(bmp) }
     }
 
     private fun onResult(bmp: Bitmap, kind: CaptureKind, label: String) {
@@ -506,40 +424,6 @@ class SnapService : AccessibilityService() {
             it.phase = io.github.kuscher.studiosnap.capture.SelPhase.AIM
             it.pointer = androidx.compose.ui.geometry.Offset(x.toFloat(), y.toFloat())
         }
-    }
-
-    /** adb-only: validates pointer erasure. Covers the screen with an opaque box (so no user
-     *  content is captured), freezes (cursor is baked in), then when [hide] repaints the tracked
-     *  cursor box with the same solid colour — proving the tracked position + box cover the sprite. */
-    fun debugCursorTest(hide: Boolean, tag: String) {
-        val ov = ComposeOverlay(this)
-        val bgColor = 0xFF20303A.toInt()
-        ov.show { Box(Modifier.fillMaxSize().background(Color(bgColor))) {} }
-        main.postDelayed({
-            captureFullScreen(1) { bmp ->
-                if (bmp != null && !isSolid(bmp, bgColor)) {
-                    Log.w(TAG, "cursortest: overlay not covering (frame not solid) — not saving")
-                    ov.destroy(); return@captureFullScreen
-                }
-                if (bmp != null) {
-                    val out = if (hide) bmp.copy(Bitmap.Config.ARGB_8888, true).also { o ->
-                        val p = lastPointer
-                        if (p != null) {
-                            android.graphics.Canvas(o).drawRect(
-                                cursorBox(p.x, p.y),
-                                android.graphics.Paint().apply { color = bgColor },
-                            )
-                            Log.i(TAG, "erase-synthetic at ${p.x},${p.y}")
-                        } else Log.w(TAG, "erase-synthetic: no pointer")
-                    } else bmp
-                    val dir = java.io.File(cacheDir, "shots").apply { mkdirs() }
-                    val f = java.io.File(dir, "$tag.png")
-                    java.io.FileOutputStream(f).use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
-                    Log.i(TAG, "cursortest hide=$hide ${out.width}x${out.height} -> ${f.absolutePath}")
-                } else Log.w(TAG, "cursortest null")
-                ov.destroy()
-            }
-        }, 400L)
     }
 
     /** adb-only: drives the REAL ScrollCapture loop (overlap + stitch) with synthetic frames cut
