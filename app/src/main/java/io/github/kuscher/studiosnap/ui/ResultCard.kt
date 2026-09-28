@@ -41,13 +41,18 @@ class CardData(
 fun CardStack(
     cards: List<CardData>,
     dark: Boolean,
+    bottomInsetPx: Int = 0,
     onDismiss: (Long) -> Unit,
     onCopy: (CardData) -> Unit,
     onEdit: (CardData) -> Unit,
 ) {
     ProvideHud(dark) {
-        Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.BottomStart) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        val extraBottom = with(androidx.compose.ui.platform.LocalDensity.current) { bottomInsetPx.toDp() }
+        Box(
+            Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp + extraBottom),
+            contentAlignment = Alignment.BottomEnd,
+        ) {
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 cards.forEach { card ->
                     ResultCard(card, onDismiss = { onDismiss(card.id) }, onCopy = { onCopy(card) }, onEdit = { onEdit(card) })
                 }
