@@ -1,5 +1,7 @@
 package io.github.kuscher.studiosnap.studio
 
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -61,6 +63,41 @@ import io.github.kuscher.studiosnap.util.Sym
 
 private data class Layout(val scale: Float, val offX: Float, val offY: Float, val pad: Float)
 
+/** The editor with no image yet: same chrome, a drop-zone that opens the system file picker. */
+@Composable
+fun EmptyEditor(dark: Boolean, onOpen: () -> Unit, onClose: () -> Unit) {
+    ProvideHud(dark) {
+        val hud = LocalHud.current
+        Column(Modifier.fillMaxSize().background(hud.surface)) {
+            Row(
+                Modifier.fillMaxWidth().background(hud.track).padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                SymText(Sym.EDIT, size = 18, color = hud.primary)
+                HudText("StudioSnap Editor", size = 15, color = hud.ink)
+                Box(Modifier.weight(1f))
+                HudButton(Sym.CLOSE, "Close", onClick = onClose)
+            }
+            Box(Modifier.fillMaxSize().background(hud.track), contentAlignment = Alignment.Center) {
+                Column(
+                    Modifier.clip(RoundedCornerShape(24.dp)).background(hud.surface)
+                        .border(1.dp, hud.line, RoundedCornerShape(24.dp)).padding(horizontal = 60.dp, vertical = 48.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Box(
+                        Modifier.size(76.dp).clip(RoundedCornerShape(22.dp)).background(hud.selBg),
+                        contentAlignment = Alignment.Center,
+                    ) { SymText(Sym.IMAGE, size = 40, filled = true, color = hud.selInk) }
+                    HudText("Open an image to edit", size = 19, weight = FontWeight.SemiBold, color = hud.ink)
+                    HudText("Annotate, blur, add frames, then copy or save.", size = 13, color = hud.muted)
+                    Pill("Open from Files", Sym.FOLDER, hud.primary, hud.onPrimary, onOpen)
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun StudioScreen(state: EditorState, dark: Boolean, onClose: () -> Unit) {
     val ctx = LocalContext.current
@@ -73,7 +110,8 @@ fun StudioScreen(state: EditorState, dark: Boolean, onClose: () -> Unit) {
                 Modifier.fillMaxWidth().background(hud.track).padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                HudText("StudioSnap · Studio", size = 15, color = hud.ink)
+                SymText(Sym.EDIT, size = 18, color = hud.primary)
+                HudText("StudioSnap Editor", size = 15, color = hud.ink)
                 HudText("${state.imgW} × ${state.imgH}", size = 12, color = hud.muted)
                 Box(Modifier.weight(1f))
                 HudButton(Sym.UNDO, "Undo", enabled = state.canUndo, onClick = { state.undo() })

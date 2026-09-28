@@ -1,26 +1,52 @@
 package io.github.kuscher.studiosnap
 
+import android.app.ActivityManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import io.github.kuscher.studiosnap.studio.EditorState
+import io.github.kuscher.studiosnap.studio.EmptyEditor
 import io.github.kuscher.studiosnap.studio.StudioScreen
 
-/** The annotation editor. Opens a capture from a working-file path or an EDIT/VIEW image intent. */
+/**
+ * The annotation editor. Opens a capture from a working-file path or an EDIT/VIEW image intent, and
+ * — launched on its own with nothing to edit — shows an empty canvas with an Open button.
+ */
 class StudioActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val bmp = loadBitmap()
-        if (bmp == null) { finish(); return }
-        val state = EditorState(bmp)
-        if (intent?.getBooleanExtra(EXTRA_DEMO, false) == true) applyDemo(state)
+        setTaskDescription(ActivityManager.TaskDescription("StudioSnap Editor"))
+        val initial = loadBitmap()
         setContent {
-            StudioScreen(state, dark = isSystemInDarkTheme(), onClose = { finish() })
+            val dark = isSystemInDarkTheme()
+            var state by remember {
+                mutableStateOf(initial?.let { EditorState(it).also { s -> if (intent?.getBooleanExtra(EXTRA_DEMO, false) == true) applyDemo(s) } })
+            }
+            val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                if (uri != null) decode(uri)?.let { state = EditorState(it) }
+            }
+            val s = state
+            if (s == null) {
+                EmptyEditor(dark = dark, onOpen = { picker.launch(arrayOf("image/*")) }, onClose = { finish() })
+            } else {
+                StudioScreen(s, dark = dark, onClose = { finish() })
+            }
         }
     }
+
+    private fun decode(uri: Uri): Bitmap? = runCatching {
+        contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+    }.getOrNull()
 
     /** Pre-populates a frame + a few annotations, for visual checks only. */
     private fun applyDemo(s: io.github.kuscher.studiosnap.studio.EditorState) {

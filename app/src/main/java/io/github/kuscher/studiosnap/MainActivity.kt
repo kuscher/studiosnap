@@ -15,6 +15,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,6 +31,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBar
+import androidx.compose.ui.graphics.Color
+import io.github.kuscher.studiosnap.ui.SymText
+import io.github.kuscher.studiosnap.util.Sym
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -60,6 +75,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setTaskDescription(android.app.ActivityManager.TaskDescription("StudioSnap"))
         forceOff = intent?.getBooleanExtra("force_off", false) == true
         serviceOn.value = !forceOff && isServiceEnabled(this)
         setContent {
@@ -82,6 +98,7 @@ class MainActivity : ComponentActivity() {
                             onOpenAccessibility = openAccessibility,
                             onTestBar = { SnapService.instance?.openBar() },
                             onSettings = { startActivity(Intent(this, SettingsActivity::class.java)) },
+                            onOpenEditor = { startActivity(Intent(this, StudioActivity::class.java)) },
                             onOpen = { uri -> startActivity(Intent(Intent.ACTION_EDIT).setDataAndType(uri, "image/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) },
                         )
                     }
@@ -96,41 +113,94 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Home(
     serviceOn: Boolean,
     onOpenAccessibility: () -> Unit,
     onTestBar: () -> Unit,
     onSettings: () -> Unit,
+    onOpenEditor: () -> Unit,
     onOpen: (Uri) -> Unit,
 ) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("StudioSnap", fontSize = 34.sp, fontWeight = FontWeight.Bold)
-        Text(
-            if (serviceOn) "Ready. Press the Screenshot key, or Action+Shift+S, anywhere to capture."
-            else "Turn on StudioSnap in Accessibility to capture with a keypress.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (!serviceOn) Button(onClick = onOpenAccessibility) { Text("Turn on instant capture") }
-            else OutlinedButton(onClick = onTestBar) { Text("Open the capture bar") }
-            OutlinedButton(onClick = onSettings) { Text("Settings") }
-        }
+    val scheme = MaterialTheme.colorScheme
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("StudioSnap", fontWeight = FontWeight.SemiBold) },
+                actions = {
+                    IconButton(onClick = onSettings) {
+                        SymText(Sym.TUNE, size = 22, color = scheme.onSurfaceVariant)
+                    }
+                },
+            )
+        },
+    ) { pad ->
+        Column(
+            Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            // Service status
+            val green = Color(0xFF1E8E4E)
+            val tint = if (serviceOn) green else scheme.primary
+            ElevatedCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Box(
+                            Modifier.size(46.dp).clip(CircleShape).background(tint.copy(alpha = 0.14f)),
+                            contentAlignment = Alignment.Center,
+                        ) { SymText(if (serviceOn) Sym.CHECK_CIRCLE else Sym.BOLT, size = 26, filled = true, color = tint) }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(if (serviceOn) "Ready to capture" else "Turn on StudioSnap", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                if (serviceOn) "Press the Screenshot key, or Action + Shift + S, anywhere."
+                                else "Enable the accessibility service to capture with a keypress.",
+                                fontSize = 13.sp, color = scheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    if (!serviceOn) {
+                        Button(onClick = onOpenAccessibility, modifier = Modifier.fillMaxWidth()) {
+                            Text("Turn on StudioSnap")
+                        }
+                    }
+                }
+            }
 
-        Text("RECENT", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
-        val recent by produceState(initialValue = emptyList<Pair<Uri, ImageBitmap>>()) { value = loadRecent(ctx) }
-        if (recent.isEmpty()) {
-            Text("Your captures show up here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(recent) { (uri, bmp) ->
-                    Image(
-                        bmp, contentDescription = null,
-                        modifier = Modifier.size(150.dp, 96.dp).clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant).clickable { onOpen(uri) },
-                        contentScale = ContentScale.Crop,
-                    )
+            // Primary actions
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (serviceOn) {
+                    FilledTonalButton(onClick = onTestBar, modifier = Modifier.weight(1f)) {
+                        SymText(Sym.PHOTO_CAMERA, size = 18, color = scheme.onSecondaryContainer)
+                        Text("  Capture bar")
+                    }
+                }
+                FilledTonalButton(onClick = onOpenEditor, modifier = Modifier.weight(1f)) {
+                    SymText(Sym.EDIT, size = 18, color = scheme.onSecondaryContainer)
+                    Text("  Editor")
+                }
+            }
+
+            // Recent
+            Text("Recent", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = scheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+            val recent by produceState(initialValue = emptyList<Pair<Uri, ImageBitmap>>()) { value = loadRecent(ctx) }
+            if (recent.isEmpty()) {
+                Box(
+                    Modifier.fillMaxWidth().height(120.dp).clip(RoundedCornerShape(16.dp)).background(scheme.surfaceVariant.copy(alpha = 0.5f)),
+                    contentAlignment = Alignment.Center,
+                ) { Text("Your captures show up here.", color = scheme.onSurfaceVariant, fontSize = 13.sp) }
+            } else {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(recent) { (uri, bmp) ->
+                        Image(
+                            bmp, contentDescription = null,
+                            modifier = Modifier.size(158.dp, 100.dp).clip(RoundedCornerShape(14.dp))
+                                .background(scheme.surfaceVariant).clickable { onOpen(uri) },
+                            contentScale = ContentScale.Crop,
+                        )
+                    }
                 }
             }
         }

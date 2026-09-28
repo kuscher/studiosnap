@@ -77,7 +77,8 @@
         <activity
             android:name=".StudioActivity"
             android:exported="true"
-            android:label="StudioSnap Studio"
+            android:label="StudioSnap Editor"
+            android:taskAffinity="io.github.kuscher.studiosnap.editor"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.EDIT" />
@@ -85,6 +86,19 @@
                 <data android:mimeType="image/*" />
             </intent-filter>
         </activity>
+
+        <!-- "StudioSnap Editor": open the annotation editor standalone (empty canvas + Open) -->
+        <activity-alias
+            android:name=".EditorLauncher"
+            android:targetActivity=".StudioActivity"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="StudioSnap Editor">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <activity
             android:name=".RecordActivity"
