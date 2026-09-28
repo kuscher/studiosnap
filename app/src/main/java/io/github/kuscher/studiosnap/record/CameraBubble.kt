@@ -87,10 +87,11 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
         private set
     var cameraCount by mutableStateOf(0)
         private set
-    /** adb visual checks: draw a test pattern instead of the camera image. */
-    var testPattern by mutableStateOf(false)
 
     val shown: Boolean get() = overlay != null
+
+    /** True while the bubble is on screen showing the real camera image. */
+    val showingCamera: Boolean get() = shown && !testPattern
 
     fun show() {
         if (overlay != null) return
@@ -277,12 +278,19 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
         Log.i(SnapService.TAG, "bubble snapped to corner $corner")
     }
 
-    private companion object {
-        const val SMALL_DP = 160
-        const val LARGE_DP = 256
-        const val PAD_DP = 6
-        const val MARGIN_DP = 16
-        const val TASKBAR_FLOOR_DP = 72
+    companion object {
+        private const val SMALL_DP = 160
+        private const val LARGE_DP = 256
+        private const val PAD_DP = 6
+        private const val MARGIN_DP = 16
+        private const val TASKBAR_FLOOR_DP = 72
+
+        /**
+         * adb visual checks: draw a test pattern instead of the camera image. Process-wide, not
+         * per bubble: Android can recreate the accessibility service (and with it the bubble)
+         * around a permission dialog, and the pattern must survive that.
+         */
+        var testPattern by mutableStateOf(false)
     }
 }
 
@@ -312,7 +320,7 @@ private fun BubbleContent(b: CameraBubble) {
             .clip(shape)
             .background(Color.Black),
     ) {
-        if (b.testPattern) {
+        if (CameraBubble.testPattern) {
             Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFFC23B1A), Color(0xFF3B6FD6)))))
         } else {
             var view by remember { mutableStateOf<PreviewView?>(null) }
