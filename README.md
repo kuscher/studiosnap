@@ -27,7 +27,7 @@ It's **copied, saved, and ready to annotate** the instant you let go — and not
 - ⚡ **Instant** — hit the **Screenshot key** (or **Action + Shift + S**) anywhere. Your shot lands on the clipboard and in your gallery before you blink — no per-capture pop-up.
 - ✏️ **Mark it up** — a real editor with arrows, shapes, pen, highlighter, text, numbered steps, blur/redaction and crop — plus **one-tap frames** that make any screenshot look designed.
 - 🔤 **Grab the text** — copy selectable text out of any window, and **on-device OCR** reads text straight out of images, PDFs, and canvas apps.
-- 🎥 **Record** — save a screen recording to an MP4 with a tap.
+- 🎥 **Record** — save a screen recording to an MP4 with a tap, with your voice from the mic and/or the sound your apps play.
 - 🔒 **Private by design** — 100% on-device with **no `INTERNET` permission**. Your captures, recordings, and OCR never touch a network.
 
 ## Mark it up
@@ -72,12 +72,13 @@ To update, just install a newer `StudioSnap.apk` over the old one — your setti
 
 - In the floating bar, pick a **mode** (Screenshot / Record) and a **source**:
   **Area** (drag a box), **Sections** (click a UI element), **Window**, **Screen**, **Scroll** (full page — *beta*), or **Text**.
+- In **Record** mode, the microphone and speaker toggles add your **voice** (a voice-over) and/or the **system audio** your apps play. Android asks for the microphone permission the first time. With both on, wear headphones so your speakers don't echo into the mic.
 - After a capture, a card appears in the corner — **Copy** it again, hit **Edit** to open the editor, or dismiss it.
 - In the editor, the **Frame** panel adds a background, padding and rounded corners; **Layers** lists everything you've drawn.
 
 ## Privacy
 
-StudioSnap requests **no `INTERNET` permission** at all — screenshots, recordings, and OCR run entirely on your device and never reach a network. The accessibility service exists only to catch the capture hotkey and read the screen when you capture; it does not log or store your keystrokes or mouse.
+StudioSnap requests **no `INTERNET` permission** at all — screenshots, recordings, and OCR run entirely on your device and never reach a network. The accessibility service exists only to catch the capture hotkey and read the screen when you capture; it does not log or store your keystrokes or mouse. The **microphone** is used only while you record with the mic or system-audio toggle on (Android asks you first and shows its mic indicator while it's in use).
 
 ## Build from source
 

@@ -27,6 +27,8 @@ import io.github.kuscher.studiosnap.capture.ElementInfo
 import io.github.kuscher.studiosnap.capture.OcrEngine
 import io.github.kuscher.studiosnap.capture.Output
 import io.github.kuscher.studiosnap.capture.WinInfo
+import io.github.kuscher.studiosnap.record.RecOptions
+import io.github.kuscher.studiosnap.record.RecToggle
 import io.github.kuscher.studiosnap.ui.CaptureMode
 import io.github.kuscher.studiosnap.ui.CaptureRoot
 import io.github.kuscher.studiosnap.ui.CardData
@@ -55,6 +57,7 @@ class SnapService : AccessibilityService() {
     private var cardId = 0L
 
     private val settings by lazy { Settings(this) }
+    private val recOptions by lazy { RecOptions(settings) }
 
     override fun onServiceConnected() {
         instance = this
@@ -258,20 +261,26 @@ class SnapService : AccessibilityService() {
 
     /** [dry] = don't freeze the screen (transparent backdrop); used only for visual checks so an
      *  overlay screenshot shows StudioSnap's own UI and never the user's apps. */
-    fun openBar(initialSource: Source? = null, dry: Boolean = false) {
+    fun openBar(initialSource: Source? = null, dry: Boolean = false, initialMode: CaptureMode? = null) {
         if (barShown()) return
         val t0 = SystemClock.elapsedRealtime()
         val present = { bmp: Bitmap? ->
-            val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::startRecordFlow, ::startScrollFlow, ::dismissCapture)
+            val s = newSession()
             session = s
             s.onFrozen(bmp, initialSource)
+            if (initialMode != null) s.changeMode(initialMode)
             val ov = captureOverlay ?: ComposeOverlay(this).also { captureOverlay = it }
             ov.show { CaptureRoot(s, dark = isNight(), barAtTop = settings.barAtTop) }
-            Log.i(TAG, "bar shown in ${SystemClock.elapsedRealtime() - t0}ms frozen=${bmp != null} source=$initialSource")
+            Log.i(TAG, "bar shown in ${SystemClock.elapsedRealtime() - t0}ms frozen=${bmp != null} source=$initialSource mode=$initialMode")
         }
         if (dry) { present(null); return }
         captureFullScreen(1) { bmp -> present(bmp) }
     }
+
+    private fun newSession() = CaptureSession(
+        this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::startRecordFlow, ::startScrollFlow, ::dismissCapture,
+        recOptions = recOptions, onRecToggle = ::toggleRec,
+    )
 
     private fun onResult(bmp: Bitmap, kind: CaptureKind, label: String) {
         val name = Output.defaultName()
@@ -361,7 +370,7 @@ class SnapService : AccessibilityService() {
 
     fun openBarTest() {
         if (barShown()) return
-        val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::startRecordFlow, ::startScrollFlow, ::dismissCapture)
+        val s = newSession()
         session = s
         s.onFrozen(testBitmap(), Source.AREA)
         val ov = captureOverlay ?: ComposeOverlay(this).also { captureOverlay = it }
@@ -404,6 +413,12 @@ class SnapService : AccessibilityService() {
 
     fun debugRecord() { startRecordFlow() }
     fun debugRecStop() { io.github.kuscher.studiosnap.record.RecordingBus.controller?.stop() }
+    /** adb-only: set the audio toggles without the bar ("mic", "sys", "both" or "off"). */
+    fun debugRecOptions(which: String) {
+        recOptions.set(RecToggle.MIC, which == "mic" || which == "both")
+        recOptions.set(RecToggle.SYSTEM_AUDIO, which == "sys" || which == "both")
+        Log.i(TAG, "rec options mic=${recOptions.mic} system=${recOptions.systemAudio}")
+    }
     fun debugRecFrame(tag: String) {
         val proj = arrayOf(android.provider.MediaStore.Video.Media._ID)
         contentResolver.query(
@@ -613,6 +628,30 @@ class SnapService : AccessibilityService() {
     }
 
     // ---- recording ----
+
+    /** A Record-mode toggle was tapped. Turning one on may first need a runtime permission. */
+    private fun toggleRec(t: RecToggle) {
+        val on = !recOptions.isOn(t)
+        if (on && checkSelfPermission(t.permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            // Android's permission dialog draws under our full-screen overlay: close the bar and
+            // reopen it (in Record mode) once the user has answered.
+            dismissCapture()
+            startActivity(io.github.kuscher.studiosnap.PermissionActivity.intent(this, t))
+            return
+        }
+        recOptions.set(t, on)
+        Log.i(TAG, "rec toggle ${t.name}=$on")
+    }
+
+    fun onPermissionResult(t: RecToggle, granted: Boolean) {
+        Log.i(TAG, "permission for ${t.name}: granted=$granted")
+        if (granted) {
+            recOptions.set(t, true)
+        } else {
+            android.widget.Toast.makeText(this, "${t.label} is off. Allow it for StudioSnap in App info › Permissions.", android.widget.Toast.LENGTH_LONG).show()
+        }
+        openBar(initialMode = CaptureMode.REC)
+    }
 
     private fun startRecordFlow() {
         dismissCapture()
