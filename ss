@@ -52,7 +52,7 @@ case "${1:-}" in
   key)     # press the Screenshot key via a virtual keyboard (real hotkey path)
     j=/data/local/tmp/ss_key.json
     printf '%s\n' \
-      '{"id":1,"command":"register","name":"SS Test Keyboard","vid":6353,"pid":45073,"bus":"usb","configuration":[{"type":100,"data":[1]},{"type":101,"data":[99,42,31,125,56,29]}]}' \
+      '{"id":1,"command":"register","name":"SS Test Keyboard","vid":6353,"pid":45073,"bus":"usb","configuration":[{"type":100,"data":[0,1]},{"type":101,"data":[99,42,31,125,56,29]}]}' \
       '{"id":1,"command":"delay","duration":700}' \
       '{"id":1,"command":"inject","events":[1,99,1,0,0,0]}' \
       '{"id":1,"command":"delay","duration":60}' \
