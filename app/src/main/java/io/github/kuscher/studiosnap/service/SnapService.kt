@@ -462,7 +462,7 @@ class SnapService : AccessibilityService() {
     fun debugBubble(args: List<String>) {
         when (args.getOrNull(0)) {
             "cam" -> { recOptions.set(RecToggle.CAMERA, args.getOrNull(1) == "on"); updateBubble() }
-            "test" -> bubble.testPattern = args.getOrNull(1) != "off"
+            "test" -> CameraBubble.testPattern = args.getOrNull(1) != "off"
             "corner" -> bubble.moveToCorner(args.getOrNull(1)?.toIntOrNull() ?: 3)
             "size" -> bubble.toggleSize()
             "shape" -> bubble.toggleShape()
@@ -592,6 +592,11 @@ class SnapService : AccessibilityService() {
 
     /** Debug/visual-check: screenshots ONLY StudioSnap's own overlay window (never the user's apps). */
     fun captureOverlayShot(tag: String) {
+        // The camera bubble is an overlay too: never screenshot it while it shows a real face.
+        if (bubble.showingCamera) {
+            Log.w(TAG, "shot refused: the camera bubble is live (debug bubble test on first)")
+            return
+        }
         val overlays = ArrayList<AccessibilityWindowInfo>()
         val all = windowsOnAllDisplays
         for (i in 0 until all.size()) for (w in all.valueAt(i))
