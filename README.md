@@ -27,7 +27,7 @@ It's **copied, saved, and ready to annotate** the instant you let go — and not
 - ⚡ **Instant** — hit the **Screenshot key** (or **Action + Shift + S**) anywhere. Your shot lands on the clipboard and in your gallery before you blink — no per-capture pop-up.
 - ✏️ **Mark it up** — a real editor with arrows, shapes, pen, highlighter, text, numbered steps, blur/redaction and crop — plus **one-tap frames** that make any screenshot look designed.
 - 🔤 **Grab the text** — copy selectable text out of any window, and **on-device OCR** reads text straight out of images, PDFs, and canvas apps.
-- 🎥 **Record** — save a screen recording to an MP4 with a tap, with your voice from the mic and/or the sound your apps play.
+- 🎥 **Record** — save a screen recording to an MP4 with a tap, with your voice from the mic and/or the sound your apps play, and a floating **camera bubble** of your face if you want one.
 - 🔒 **Private by design** — 100% on-device with **no `INTERNET` permission**. Your captures, recordings, and OCR never touch a network.
 
 ## Mark it up
@@ -72,13 +72,14 @@ To update, just install a newer `StudioSnap.apk` over the old one — your setti
 
 - In the floating bar, pick a **mode** (Screenshot / Record) and a **source**:
   **Area** (drag a box), **Sections** (click a UI element), **Window**, **Screen**, **Scroll** (full page — *beta*), or **Text**.
-- In **Record** mode, the microphone and speaker toggles add your **voice** (a voice-over) and/or the **system audio** your apps play. Android asks for the microphone permission the first time. With both on, wear headphones so your speakers don't echo into the mic.
+- In **Record** mode, the camera toggle shows a live **camera bubble** that's recorded with the screen. Drag it and it snaps to the nearest corner; hover over it to make it bigger, switch between a circle and a rounded square, or switch cameras when a webcam is plugged in.
+- The microphone and speaker toggles add your **voice** (a voice-over) and/or the **system audio** your apps play. Android asks for the microphone permission the first time. With both on, wear headphones so your speakers don't echo into the mic.
 - After a capture, a card appears in the corner — **Copy** it again, hit **Edit** to open the editor, or dismiss it.
 - In the editor, the **Frame** panel adds a background, padding and rounded corners; **Layers** lists everything you've drawn.
 
 ## Privacy
 
-StudioSnap requests **no `INTERNET` permission** at all — screenshots, recordings, and OCR run entirely on your device and never reach a network. The accessibility service exists only to catch the capture hotkey and read the screen when you capture; it does not log or store your keystrokes or mouse. The **microphone** is used only while you record with the mic toggle on (Android asks you first and shows its mic indicator while it's in use). **System audio** captures only the sound your apps play, never the mic, though Android files it under the same microphone permission.
+StudioSnap requests **no `INTERNET` permission** at all — screenshots, recordings, and OCR run entirely on your device and never reach a network. The accessibility service exists only to catch the capture hotkey and read the screen when you capture; it does not log or store your keystrokes or mouse. The **microphone** is used only while you record with the mic toggle on (Android asks you first and shows its mic indicator while it's in use). **System audio** captures only the sound your apps play, never the mic, though Android files it under the same microphone permission. The **camera** runs only while the camera bubble is on screen (Android shows its camera indicator), and its picture only ends up in recordings you make.
 
 ## Build from source
 

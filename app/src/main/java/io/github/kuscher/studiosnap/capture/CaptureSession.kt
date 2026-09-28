@@ -49,6 +49,7 @@ class CaptureSession(
     /** Record-mode toggles (mic, system audio); null hides them. */
     val recOptions: RecOptions? = null,
     private val onRecToggle: (RecToggle) -> Unit = {},
+    private val onModeChange: (CaptureMode) -> Unit = {},
 ) {
     private val elementCache = HashMap<Int, List<ElementInfo>>()
     var mode by mutableStateOf(CaptureMode.SHOT)
@@ -114,6 +115,7 @@ class CaptureSession(
         if (m == CaptureMode.REC && source !in recSources) source = Source.SCREEN
         selection = null; phase = SelPhase.AIM
         hover = if (source == Source.SCREEN) Hover(fullRect(), "Display 1", false, null) else null
+        onModeChange(m)
     }
 
     fun toggleRec(t: RecToggle) = onRecToggle(t)

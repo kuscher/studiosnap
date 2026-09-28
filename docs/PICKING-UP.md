@@ -199,6 +199,21 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
   `SnapService.pendingPermission` and applied on reconnect, and a reconnect mid-recording
   restores the pill. `PermissionActivity` must NOT be `noHistory` (no result callbacks).
 
+## Camera bubble (2026-09-28, built; on-device test pending)
+- Record mode gets a third toggle, **camera**, which shows `record/CameraBubble`: a live CameraX
+  preview (PreviewView in COMPATIBLE/TextureView mode so the Compose clip applies) in its own small
+  accessibility overlay, so the MediaProjection recording captures it as displayed. It shows while
+  the bar is in Record mode or a recording is starting/running, and hides otherwise.
+- Drag in raw screen coordinates; release snaps (animated) to the nearest corner. Hover or tap
+  shows controls: size (160/256 dp), shape (circle/rounded square), switch camera (only with 2+
+  cameras). Size/shape/corner/camera id persist in `Settings`. Default: bottom-right, front camera.
+- No camera FGS: the accessibility binding gives the process the camera capability
+  (`dumpsys activity processes` → `curCapability=LCMN-U-TI`). The camera binds to the overlay's
+  lifecycle, so it only runs while the bubble is visible.
+- Z-order: a11y overlays stack in add order, so the bubble is re-added after the bar and the
+  recording pill (`bringToFront`).
+- CameraX 1.6.2 adds ~2 MB to the release APK (29.2 MB).
+
 ## Next — republish release w/ these fixes when user OKs; polish (scroll progress HUD, home desktop layout) + 4b recording (paused).
 Remaining Phase 1 work:
 1. Capture engine: `takeScreenshot` (full/area-crop) and `takeScreenshotOfWindow`; ~333 ms limit.

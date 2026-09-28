@@ -11,6 +11,7 @@ import io.github.kuscher.studiosnap.util.Settings
 enum class RecToggle(val permission: String, val label: String) {
     MIC(Manifest.permission.RECORD_AUDIO, "Microphone"),
     SYSTEM_AUDIO(Manifest.permission.RECORD_AUDIO, "System audio"),
+    CAMERA(Manifest.permission.CAMERA, "Camera"),
 }
 
 /**
@@ -23,10 +24,13 @@ class RecOptions(private val settings: Settings) {
         private set
     var systemAudio by mutableStateOf(settings.recSystemAudio)
         private set
+    var camera by mutableStateOf(settings.recCamera)
+        private set
 
     fun isOn(t: RecToggle): Boolean = when (t) {
         RecToggle.MIC -> mic
         RecToggle.SYSTEM_AUDIO -> systemAudio
+        RecToggle.CAMERA -> camera
     }
 
     fun set(t: RecToggle, on: Boolean) {
@@ -37,12 +41,14 @@ class RecOptions(private val settings: Settings) {
     fun reload() {
         mic = settings.recMic
         systemAudio = settings.recSystemAudio
+        camera = settings.recCamera
     }
 
     companion object {
         fun persist(settings: Settings, t: RecToggle, on: Boolean) = when (t) {
             RecToggle.MIC -> settings.recMic = on
             RecToggle.SYSTEM_AUDIO -> settings.recSystemAudio = on
+            RecToggle.CAMERA -> settings.recCamera = on
         }
     }
 }
