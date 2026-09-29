@@ -59,10 +59,23 @@ class Settings(ctx: Context) {
         get() = p.getBoolean(BUBBLE_CUTOUT, false)
         set(v) = p.edit().putBoolean(BUBBLE_CUTOUT, v).apply()
 
-    /** 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right (the default, like ChromeOS). */
+    /**
+     * 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right (the default, like ChromeOS), or -1
+     * when the bubble was left somewhere else (see [bubbleFreeX] / [bubbleFreeY]).
+     */
     var bubbleCorner: Int
         get() = p.getInt(BUBBLE_CORNER, 3)
         set(v) = p.edit().putInt(BUBBLE_CORNER, v).apply()
+
+    /** Where a free (not cornered) bubble's center is, as a fraction of the screen's width. */
+    var bubbleFreeX: Float
+        get() = p.getFloat(BUBBLE_FREE_X, 0.5f)
+        set(v) = p.edit().putFloat(BUBBLE_FREE_X, v).apply()
+
+    /** ... and of its height. */
+    var bubbleFreeY: Float
+        get() = p.getFloat(BUBBLE_FREE_Y, 0.5f)
+        set(v) = p.edit().putFloat(BUBBLE_FREE_Y, v).apply()
 
     /** Camera2 id of the bubble's camera; null picks the front camera. */
     var bubbleCameraId: String?
@@ -89,5 +102,7 @@ class Settings(ctx: Context) {
         private const val BUBBLE_CORNER = "bubbleCorner"
         private const val BUBBLE_CAMERA = "bubbleCameraId"
         private const val BUBBLE_CUTOUT = "bubbleCutout"
+        private const val BUBBLE_FREE_X = "bubbleFreeX"
+        private const val BUBBLE_FREE_Y = "bubbleFreeY"
     }
 }
