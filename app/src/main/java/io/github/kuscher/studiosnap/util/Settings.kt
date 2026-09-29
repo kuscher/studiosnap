@@ -54,6 +54,11 @@ class Settings(ctx: Context) {
         get() = p.getBoolean(BUBBLE_SQUARE, false)
         set(v) = p.edit().putBoolean(BUBBLE_SQUARE, v).apply()
 
+    /** Cut-out mode: remove the background so only the person floats over the screen. */
+    var bubbleCutout: Boolean
+        get() = p.getBoolean(BUBBLE_CUTOUT, false)
+        set(v) = p.edit().putBoolean(BUBBLE_CUTOUT, v).apply()
+
     /** 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right (the default, like ChromeOS). */
     var bubbleCorner: Int
         get() = p.getInt(BUBBLE_CORNER, 3)
@@ -83,5 +88,6 @@ class Settings(ctx: Context) {
         private const val BUBBLE_SQUARE = "bubbleSquare"
         private const val BUBBLE_CORNER = "bubbleCorner"
         private const val BUBBLE_CAMERA = "bubbleCameraId"
+        private const val BUBBLE_CUTOUT = "bubbleCutout"
     }
 }

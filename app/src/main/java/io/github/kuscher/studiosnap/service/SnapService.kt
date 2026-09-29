@@ -469,7 +469,7 @@ class SnapService : AccessibilityService() {
 
     fun debugRecord() { startRecordFlow() }
     fun debugRecStop() { io.github.kuscher.studiosnap.record.RecordingBus.controller?.stop() }
-    /** adb-only camera bubble checks: "cam on|off", "test on|off", "corner N", "size", "shape", "switch", "info". */
+    /** adb-only camera bubble checks: "cam on|off", "test on|off", "corner N", "size", "shape", "cutout", "switch", "info". */
     fun debugBubble(args: List<String>) {
         when (args.getOrNull(0)) {
             "cam" -> { recOptions.set(RecToggle.CAMERA, args.getOrNull(1) == "on"); updateBubble() }
@@ -477,6 +477,7 @@ class SnapService : AccessibilityService() {
             "corner" -> bubble.moveToCorner(args.getOrNull(1)?.toIntOrNull() ?: 3)
             "size" -> bubble.toggleSize()
             "shape" -> bubble.toggleShape()
+            "cutout" -> bubble.toggleCutout()
             "switch" -> bubble.switchCamera()
         }
         Log.i(TAG, bubble.describe())
