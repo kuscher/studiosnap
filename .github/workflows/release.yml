@@ -48,7 +48,12 @@ jobs:
           printf '%s' "$KEYSTORE_PASS" > ~/.config/studiosnap/keystore.pass
 
       - name: Build
-        run: ./gradlew :app:assembleRelease --no-daemon --console=plain
+        run: |
+          # Machine-specific memory lives in ~/.gradle (see gradle.properties); R8 needs more than
+          # Gradle's 512 MB default.
+          mkdir -p ~/.gradle
+          echo "org.gradle.jvmargs=-Xmx4g -XX:+UseParallelGC -Dfile.encoding=UTF-8" >> ~/.gradle/gradle.properties
+          ./gradlew :app:assembleRelease --no-daemon --console=plain
 
       - name: Check the certificate
         run: |
