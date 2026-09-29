@@ -231,6 +231,30 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
 - `debug shot` refuses to run while the bubble shows the real camera: `debug bubble test on`
   first. Never screenshot a live bubble.
 
+## Camera bubble: cut-out, free placement, Settings button (2026-09-28, verified on device)
+- **Cut-out** ("Remove background" on the bubble, `Settings.bubbleCutout`): `record/Cutout.kt` runs
+  Google's selfie segmentation model (`assets/models/selfie_segmenter.tflite`, MediaPipe, square
+  256x256, Apache 2.0; RGB in [0, 1] -> one person-probability channel) on LiteRT 1.4.2 on the CPU.
+  The camera binds ImageAnalysis (1280x960, RGBA) instead of the Preview in this mode; frames are
+  rotated, mirrored and center-cropped to a square. The model runs on its own thread on the newest
+  frame; each camera frame is drawn with the latest mask (DST_IN, bilinear upscale). Acer: 29.5 fps
+  video and mask, ~10 ms per run, memory flat over a minute. Recorded transparency checked with
+  `debug recpixel` (bubble corners match the screen behind them).
+- Tried and dropped (all on the Acer): the landscape model (256x144 mask, coarse edges), ML Kit's
+  selfie segmenter (no better; 71 MB APK vs 40 MB), the multi-class model (better edges, ~117 ms a
+  run, so the mask trailed a moving person as a dark shadow), LiteRT's GPU delegate (OpenCL is clvk
+  on this Googlebook: 18 s+ compile, then a crash; OpenGL via ANGLE won't initialize). LiteRT 2.x
+  fails AGP 9's namespace check and adds FOREGROUND_SERVICE_DATA_SYNC.
+- Compose makes a new AndroidView during composition, before the old branch's DisposableEffect
+  cleanup runs: when the cut-out switches off, the cleanup must rebind (not just unbind) or the
+  preview is left without a camera.
+- **Free placement**: a dropped bubble stays where it's left (clamped on screen); within 64 dp of a
+  corner spot it snaps into the corner. `Settings.bubbleCorner` is -1 when free, with the center in
+  `bubbleFreeX` / `bubbleFreeY` (fractions of the screen).
+- **Settings button**: the bar's Options (tune) button closes the bar and opens Settings.
+- Known limits: the bubble window is a square, so its see-through part still takes clicks; the
+  camera list is read when the camera binds (a hot-plugged webcam shows up next time).
+
 ## Next — republish release w/ these fixes when user OKs; polish (scroll progress HUD, home desktop layout) + 4b recording (paused).
 Remaining Phase 1 work:
 1. Capture engine: `takeScreenshot` (full/area-crop) and `takeScreenshotOfWindow`; ~333 ms limit.
