@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.kuscher.studiosnap.capture.CaptureSession
+import io.github.kuscher.studiosnap.record.RecToggle
 import io.github.kuscher.studiosnap.util.Sym
 
 enum class CaptureMode { SHOT, REC }
@@ -106,6 +107,13 @@ fun CaptureBar(
             session.sources.forEach { src -> SourceButton(session, src) }
         }
         Divider()
+        val rec = session.recOptions
+        if (session.mode == CaptureMode.REC && rec != null) {
+            // What the recording hears: your voice-over and/or the sound apps play.
+            HudButton(if (rec.mic) Sym.MIC else Sym.MIC_OFF, "Microphone", selected = rec.mic, onClick = { session.toggleRec(RecToggle.MIC) })
+            HudButton(if (rec.systemAudio) Sym.VOLUME_UP else Sym.VOLUME_OFF, "System audio", selected = rec.systemAudio, onClick = { session.toggleRec(RecToggle.SYSTEM_AUDIO) })
+            Divider()
+        }
         HudButton(Sym.TIMER, "Timer", selected = session.timerSeconds > 0, onClick = {
             session.timerSeconds = when (session.timerSeconds) { 0 -> 3; 3 -> 5; 5 -> 10; else -> 0 }
         })

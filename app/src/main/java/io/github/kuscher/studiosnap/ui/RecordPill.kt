@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -21,13 +20,16 @@ import androidx.compose.ui.unit.dp
 import io.github.kuscher.studiosnap.record.RecordingBus
 import io.github.kuscher.studiosnap.util.Sym
 
-/** The small pill shown while recording: time, stop, discard. Top-centre so it stays out of shots. */
+/**
+ * The small pill shown while recording: time, stop, discard. Its window is sized to the pill and
+ * placed top-centre by the service, so the screen around it stays clickable.
+ */
 @Composable
 fun RecordRoot(dark: Boolean) {
     ProvideHud(dark) {
         val hud = LocalHud.current
         val ms by RecordingBus::elapsedMs
-        Box(Modifier.fillMaxSize().padding(top = 24.dp), contentAlignment = Alignment.TopCenter) {
+        Box(contentAlignment = Alignment.TopCenter) {
             Row(
                 Modifier.height(52.dp).background(hud.surface, CircleShape).border(1.dp, hud.line, CircleShape).padding(start = 6.dp, end = 8.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp),

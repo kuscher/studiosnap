@@ -10,6 +10,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import io.github.kuscher.studiosnap.record.RecOptions
+import io.github.kuscher.studiosnap.record.RecToggle
 import io.github.kuscher.studiosnap.service.SnapService
 import io.github.kuscher.studiosnap.ui.CaptureMode
 import io.github.kuscher.studiosnap.ui.Source
@@ -44,6 +46,9 @@ class CaptureSession(
     private val onRecord: () -> Unit = {},
     private val onScroll: (WinInfo) -> Unit = {},
     private val onDismiss: () -> Unit,
+    /** Record-mode toggles (mic, system audio); null hides them. */
+    val recOptions: RecOptions? = null,
+    private val onRecToggle: (RecToggle) -> Unit = {},
 ) {
     private val elementCache = HashMap<Int, List<ElementInfo>>()
     var mode by mutableStateOf(CaptureMode.SHOT)
@@ -76,7 +81,21 @@ class CaptureSession(
     }
 
     /** Called once the frozen frame is ready and the overlay is about to show. */
+    /**
+     * Record isn't accepted for a moment after the bar opens: a click or Enter still in flight
+     * from what opened it (a permission dialog, say) must not start a recording.
+     */
+    private var recordReadyAt = 0L
+    private fun recordReady() = android.os.SystemClock.uptimeMillis() >= recordReadyAt
+
+    /** Starts the Record grace period again (the bar just came back from behind a dialog). */
+    fun holdRecord() { recordReadyAt = android.os.SystemClock.uptimeMillis() + RECORD_GRACE_MS }
+
+    /** The frozen screen behind the bar, so a restored bar can show the same one. */
+    val frozenBitmap: Bitmap? get() = frozenBmp
+
     fun onFrozen(bmp: Bitmap?, initialSource: Source?) {
+        recordReadyAt = android.os.SystemClock.uptimeMillis() + RECORD_GRACE_MS
         frozenBmp = bmp
         frozen = bmp?.asImageBitmap()
         windows = listWindows()
@@ -96,6 +115,8 @@ class CaptureSession(
         selection = null; phase = SelPhase.AIM
         hover = if (source == Source.SCREEN) Hover(fullRect(), "Display 1", false, null) else null
     }
+
+    fun toggleRec(t: RecToggle) = onRecToggle(t)
 
     fun changeSource(s: Source) {
         if (mode == CaptureMode.REC && s !in recSources) return
@@ -159,7 +180,7 @@ class CaptureSession(
 
     fun tapAt(p: Offset): Boolean {
         // In Record mode a click anywhere records the screen (region/window recording not built yet).
-        if (mode == CaptureMode.REC) { onRecord(); finish(); return true }
+        if (mode == CaptureMode.REC) { if (recordReady()) { onRecord(); finish() }; return true }
         // A click without a drag grabs whatever is highlighted: a window, an element, or the screen.
         when (source) {
             Source.SCREEN -> { captureScreen(); return true }
@@ -175,7 +196,7 @@ class CaptureSession(
     }
 
     fun primary() {
-        if (mode == CaptureMode.REC) { onRecord(); finish(); return }
+        if (mode == CaptureMode.REC) { if (recordReady()) { onRecord(); finish() }; return }
         when (source) {
             Source.SCREEN -> captureScreen()
             Source.WINDOW -> hover?.winId?.let { id -> windows.find { it.id == id }?.let { captureWindow(it) } }
@@ -236,5 +257,9 @@ class CaptureSession(
         val l = minOf(x0, x1).coerceIn(0f, maxW); val t = minOf(y0, y1).coerceIn(0f, maxH)
         val rr = maxOf(x0, x1).coerceIn(0f, maxW); val bb = maxOf(y0, y1).coerceIn(0f, maxH)
         return Rect(l, t, rr, bb)
+    }
+
+    private companion object {
+        const val RECORD_GRACE_MS = 400L
     }
 }

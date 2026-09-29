@@ -50,6 +50,9 @@ class ComposeOverlay(
     private var view: ComposeView? = null
     var shown = false
         private set
+    /** Shown but hidden: invisible and untouchable, with its UI and state kept (see [setHidden]). */
+    var hidden = false
+        private set
 
     val params: WindowManager.LayoutParams = WindowManager.LayoutParams().apply {
         type = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
@@ -86,7 +89,21 @@ class ComposeOverlay(
         shown = true
     }
 
+    /**
+     * Hides a shown window without removing it (or brings it back): used while a system dialog has
+     * to be seen and clicked, which an accessibility overlay would otherwise cover.
+     */
+    fun setHidden(h: Boolean) {
+        val v = view ?: return
+        hidden = h
+        v.visibility = if (h) android.view.View.INVISIBLE else android.view.View.VISIBLE
+        params.flags = if (h) params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        else params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        runCatching { wm.updateViewLayout(v, params) }
+    }
+
     fun dismiss() {
+        if (hidden) setHidden(false)
         val v = view ?: return
         runCatching { wm.removeViewImmediate(v) }
         view = null
