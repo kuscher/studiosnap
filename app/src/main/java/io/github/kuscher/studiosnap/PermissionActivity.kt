@@ -17,6 +17,7 @@ import io.github.kuscher.studiosnap.util.Settings
  */
 class PermissionActivity : Activity() {
     private lateinit var toggle: RecToggle
+    private var answered = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,10 +37,19 @@ class PermissionActivity : Activity() {
 
     override fun onDestroy() {
         showing = false
+        // Gone without an answer (say, its window was closed from the taskbar): count it as a
+        // refusal, so the bar hidden behind the dialog comes back instead of staying hidden.
+        if (!answered && !isChangingConfigurations && ::toggle.isInitialized) answer(false)
         super.onDestroy()
     }
 
     private fun done(granted: Boolean) {
+        answer(granted)
+        finish()
+    }
+
+    private fun answer(granted: Boolean) {
+        answered = true
         showing = false // the dialog is gone: the bar may come back now
         // Save the toggle here, not in the service: Android can briefly re-bind the accessibility
         // service around the permission dialog, so SnapService.instance may be null right now.
@@ -47,7 +57,6 @@ class PermissionActivity : Activity() {
         if (granted) RecOptions.persist(Settings(this), toggle, true)
         SnapService.pendingPermission = toggle to granted
         SnapService.instance?.consumePendingPermission()
-        finish()
     }
 
     companion object {

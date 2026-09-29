@@ -299,7 +299,14 @@ class SnapService : AccessibilityService() {
     /** [dry] = don't freeze the screen (transparent backdrop); used only for visual checks so an
      *  overlay screenshot shows StudioSnap's own UI and never the user's apps. */
     fun openBar(initialSource: Source? = null, dry: Boolean = false, initialMode: CaptureMode? = null, frozen: Bitmap? = null) {
-        if (!alive || captureOverlay?.shown == true) return
+        if (!alive) return
+        // A bar hidden for a permission dialog that is gone without bringing it back: drop it, or
+        // it would block every new bar (and the Screenshot key) until the service restarts.
+        if (captureOverlay?.hidden == true && !io.github.kuscher.studiosnap.PermissionActivity.showing) {
+            parkedBar = null
+            dismissCapture()
+        }
+        if (captureOverlay?.shown == true) return
         val t0 = SystemClock.elapsedRealtime()
         val present = present@{ bmp: Bitmap? ->
             if (!alive) return@present // unbound while the screenshot was in flight
@@ -706,6 +713,12 @@ class SnapService : AccessibilityService() {
 
     /** A Record-mode toggle was tapped. Turning one on may first need a runtime permission. */
     private fun toggleRec(t: RecToggle) {
+        if (t != RecToggle.CAMERA && (recordPending || io.github.kuscher.studiosnap.record.RecordingBus.active)) {
+            // The audio sources are fixed when a recording starts: a toggle flipped now would show
+            // the mic as off while it's still being recorded. (The camera bubble does act live.)
+            android.widget.Toast.makeText(this, "Stop the recording to change the mic or system audio.", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
         val on = !recOptions.isOn(t)
         if (on && checkSelfPermission(t.permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             // Android's permission dialog draws under our full-screen overlay, so the bar steps
@@ -754,7 +767,11 @@ class SnapService : AccessibilityService() {
         if (io.github.kuscher.studiosnap.PermissionActivity.showing) return
         val p = parkedBar ?: return
         parkedBar = null
-        if (SystemClock.elapsedRealtime() - p.at > PARK_TTL_MS) return
+        if (SystemClock.elapsedRealtime() - p.at > PARK_TTL_MS) {
+            // Too old to bring back: close it rather than leave an invisible bar holding the keys.
+            if (captureOverlay?.hidden == true) dismissCapture()
+            return
+        }
         val ov = captureOverlay
         if (ov != null && ov.shown && ov.hidden && session != null) {
             ov.setHidden(false)

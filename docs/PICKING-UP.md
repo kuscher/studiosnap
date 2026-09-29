@@ -258,6 +258,17 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
 - Known limits: the bubble window is a square, so its see-through part still takes clicks; the
   camera list is read when the camera binds (a hot-plugged webcam shows up next time).
 
+## 0.4 release review fixes (2026-09-29)
+- A bar hidden for a permission dialog could stay hidden for good (dialog up > 60 s then denied,
+  or closed without an answer): `openBar` then saw a shown bar and did nothing, while the
+  Screenshot key was still swallowed. Now an expired parked bar is closed, `PermissionActivity`
+  reports "no answer" as a refusal from `onDestroy`, and `openBar` drops a hidden bar whose
+  dialog is gone.
+- Mic and system audio are fixed when a recording starts, so their toggles refuse to change mid-
+  recording (toast) instead of showing "off" while still recording. The camera toggle acts live.
+- `RecordService` clears `SnapService.recordPending` itself: with the service between objects, a
+  failed start used to leave it set (camera bubble up, "Already recording" until process death).
+
 ## Next — republish release w/ these fixes when user OKs; polish (scroll progress HUD, home desktop layout) + 4b recording (paused).
 Remaining Phase 1 work:
 1. Capture engine: `takeScreenshot` (full/area-crop) and `takeScreenshotOfWindow`; ~333 ms limit.
