@@ -1,0 +1,77 @@
+# Pushing a tag like v0.5 builds, signs and publishes that release (see docs/RELEASING.md).
+# "Run workflow" on the Actions tab is a dry run: the same signed build and checks, nothing published.
+#
+# Only people with write access can push tags or run this, and forks never get the secrets. The job
+# that holds the signing key uses only GitHub's own actions, pinned to exact commits.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Release notes and version
+        if: github.ref_type == 'tag'
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          test -f "docs/release-notes/$VERSION.md" || { echo "::error::docs/release-notes/$VERSION.md is missing"; exit 1; }
+          grep -q "versionName = \"$VERSION\"" app/build.gradle.kts || { echo "::error::versionName in app/build.gradle.kts isn't $VERSION"; exit 1; }
+
+      - name: SDK packages
+        run: $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+
+      - name: Signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.STUDIOSNAP_KEYSTORE_B64 }}
+          KEYSTORE_PASS: ${{ secrets.STUDIOSNAP_KEYSTORE_PASS }}
+        run: |
+          test -n "$KEYSTORE_B64" && test -n "$KEYSTORE_PASS" || { echo "::error::the signing secrets aren't set"; exit 1; }
+          mkdir -p ~/.config/studiosnap
+          echo "$KEYSTORE_B64" | base64 -d > ~/.config/studiosnap/keystore.jks
+          printf '%s' "$KEYSTORE_PASS" > ~/.config/studiosnap/keystore.pass
+
+      - name: Build
+        run: ./gradlew :app:assembleRelease --no-daemon --console=plain
+
+      - name: Check the certificate
+        run: |
+          APK=app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" \
+            | grep -q "SHA-256 digest: e1d1cb073bbd58254db0ea27aa31e19331a82f20e1e9ec011b7d041a9f79697a" \
+            || { echo "::error::the APK isn't signed with the StudioSnap release key"; exit 1; }
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$APK" | head -1
+          sha256sum "$APK"
+
+      - name: Publish
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cp app/build/outputs/apk/release/app-release.apk StudioSnap.apk
+          cp StudioSnap.apk "StudioSnap-$VERSION.apk"
+          sha256sum "StudioSnap-$VERSION.apk" > "StudioSnap-$VERSION.apk.sha256"
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "StudioSnap $VERSION" \
+            --notes-file "docs/release-notes/$VERSION.md" \
+            StudioSnap.apk "StudioSnap-$VERSION.apk" "StudioSnap-$VERSION.apk.sha256"
+
+      - name: Remove the key
+        if: always()
+        run: rm -rf ~/.config/studiosnap
