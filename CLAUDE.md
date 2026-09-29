@@ -10,13 +10,15 @@ SDK 37), native Kotlin + Jetpack Compose, MIT. The floating **capture bar** is t
   keep secrets, keys, personal hosts and IPs out of commits, docs and PRs.
 - Releases: GitHub Releases, v0.1 to v0.3 published (APK attached as `StudioSnap.apk` +
   `StudioSnap-<version>.apk`); `main` may be ahead of the latest tag. How to cut one (by hand, or by
-  pushing a tag once the Actions secrets exist): `docs/RELEASING.md`; notes in `docs/release-notes/`.
+  pushing a `v*` tag, which runs `.github/workflows/release.yml`): `docs/RELEASING.md`; notes in `docs/release-notes/`.
 - **Release signing key:** `~/.config/studiosnap/keystore.jks` (+ `keystore.pass`), git-ignored.
   Alias `studiosnap`, cert SHA-256 `E1:D1:CB:07:3B:BD:58:25:4D:B0:EA:27:AA:31:E1:93:31:A8:2F:20:E1:E9:EC:01:1B:7D:04:1A:9F:79:69:7A`.
   Backed up to the user's a private folder (the keystore base64 +
   a README with restore steps). The keystore **password is intentionally NOT in the backup or git** — it
   is in the user's password manager (and on the VM at `~/.config/studiosnap/keystore.pass`). Every
   future release MUST be signed with this exact key or users can't update without uninstalling.
+  The keystore and its password are also the repo's Actions secrets `STUDIOSNAP_KEYSTORE_B64` /
+  `STUDIOSNAP_KEYSTORE_PASS`, used only by the tag-triggered release workflow.
 - Dev env: SDK/adb from `~/.config/vscodebook/android.env`; adb runs over a unix socket, so always
   go through `./ss` (or source that env) — never a bare `adb`.
 
