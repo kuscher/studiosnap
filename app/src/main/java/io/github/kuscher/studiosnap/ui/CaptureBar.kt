@@ -109,7 +109,8 @@ fun CaptureBar(
         Divider()
         val rec = session.recOptions
         if (session.mode == CaptureMode.REC && rec != null) {
-            // What the recording hears: your voice-over and/or the sound apps play.
+            // The camera bubble, then what the recording hears: your voice-over and/or the sound apps play.
+            HudButton(if (rec.camera) Sym.VIDEO_CAMERA_FRONT else Sym.VIDEO_CAMERA_FRONT_OFF, "Camera", selected = rec.camera, onClick = { session.toggleRec(RecToggle.CAMERA) })
             HudButton(if (rec.mic) Sym.MIC else Sym.MIC_OFF, "Microphone", selected = rec.mic, onClick = { session.toggleRec(RecToggle.MIC) })
             HudButton(if (rec.systemAudio) Sym.VOLUME_UP else Sym.VOLUME_OFF, "System audio", selected = rec.systemAudio, onClick = { session.toggleRec(RecToggle.SYSTEM_AUDIO) })
             Divider()
@@ -117,7 +118,7 @@ fun CaptureBar(
         HudButton(Sym.TIMER, "Timer", selected = session.timerSeconds > 0, onClick = {
             session.timerSeconds = when (session.timerSeconds) { 0 -> 3; 3 -> 5; 5 -> 10; else -> 0 }
         })
-        HudButton(Sym.TUNE, "Options", onClick = {})
+        HudButton(Sym.TUNE, "Settings", onClick = { session.openSettings() })
         if (session.mode == CaptureMode.SHOT) HudButton(Sym.HISTORY, "Last area", enabled = false, onClick = {})
         PrimaryButton(session, enabled = session.primaryEnabled, onClick = onPrimary)
         HudButton(Sym.CHEVRON_LEFT, "Collapse", onClick = { session.collapsed = true })

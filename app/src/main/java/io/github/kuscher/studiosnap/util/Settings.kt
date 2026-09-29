@@ -40,6 +40,48 @@ class Settings(ctx: Context) {
         get() = p.getBoolean(REC_SYSTEM, false)
         set(v) = p.edit().putBoolean(REC_SYSTEM, v).apply()
 
+    /** Show the floating camera bubble in Record mode (recorded with the screen). Needs CAMERA. */
+    var recCamera: Boolean
+        get() = p.getBoolean(REC_CAMERA, false)
+        set(v) = p.edit().putBoolean(REC_CAMERA, v).apply()
+
+    var bubbleLarge: Boolean
+        get() = p.getBoolean(BUBBLE_LARGE, false)
+        set(v) = p.edit().putBoolean(BUBBLE_LARGE, v).apply()
+
+    /** Rounded square instead of a circle. */
+    var bubbleSquare: Boolean
+        get() = p.getBoolean(BUBBLE_SQUARE, false)
+        set(v) = p.edit().putBoolean(BUBBLE_SQUARE, v).apply()
+
+    /** Cut-out mode: remove the background so only the person floats over the screen. */
+    var bubbleCutout: Boolean
+        get() = p.getBoolean(BUBBLE_CUTOUT, false)
+        set(v) = p.edit().putBoolean(BUBBLE_CUTOUT, v).apply()
+
+    /**
+     * 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right (the default, like ChromeOS), or -1
+     * when the bubble was left somewhere else (see [bubbleFreeX] / [bubbleFreeY]).
+     */
+    var bubbleCorner: Int
+        get() = p.getInt(BUBBLE_CORNER, 3)
+        set(v) = p.edit().putInt(BUBBLE_CORNER, v).apply()
+
+    /** Where a free (not cornered) bubble's center is, as a fraction of the screen's width. */
+    var bubbleFreeX: Float
+        get() = p.getFloat(BUBBLE_FREE_X, 0.5f)
+        set(v) = p.edit().putFloat(BUBBLE_FREE_X, v).apply()
+
+    /** ... and of its height. */
+    var bubbleFreeY: Float
+        get() = p.getFloat(BUBBLE_FREE_Y, 0.5f)
+        set(v) = p.edit().putFloat(BUBBLE_FREE_Y, v).apply()
+
+    /** Camera2 id of the bubble's camera; null picks the front camera. */
+    var bubbleCameraId: String?
+        get() = p.getString(BUBBLE_CAMERA, null)
+        set(v) = p.edit().putString(BUBBLE_CAMERA, v).apply()
+
     /** Set once the user finishes (or skips) the first-run onboarding. */
     var onboardingDone: Boolean
         get() = p.getBoolean(ONBOARDED, false)
@@ -54,5 +96,13 @@ class Settings(ctx: Context) {
         private const val ONBOARDED = "onboardingDone"
         private const val REC_MIC = "recMic"
         private const val REC_SYSTEM = "recSystemAudio"
+        private const val REC_CAMERA = "recCamera"
+        private const val BUBBLE_LARGE = "bubbleLarge"
+        private const val BUBBLE_SQUARE = "bubbleSquare"
+        private const val BUBBLE_CORNER = "bubbleCorner"
+        private const val BUBBLE_CAMERA = "bubbleCameraId"
+        private const val BUBBLE_CUTOUT = "bubbleCutout"
+        private const val BUBBLE_FREE_X = "bubbleFreeX"
+        private const val BUBBLE_FREE_Y = "bubbleFreeY"
     }
 }

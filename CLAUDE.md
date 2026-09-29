@@ -8,8 +8,9 @@ SDK 37), native Kotlin + Jetpack Compose, MIT. The floating **capture bar** is t
 ## Where things are
 - Repo: `~/studiosnap`, GitHub **kuscher/studiosnap** (**public**, MIT). Anything committed is world-readable:
   keep secrets, keys, personal hosts and IPs out of commits, docs and PRs.
-- Releases: GitHub Releases — v0.1 and **v0.2 published** (APK attached); newer fixes may be ahead
-  of the published tag, so republish when the user asks.
+- Releases: GitHub Releases, v0.1 to v0.3 published (APK attached as `StudioSnap.apk` +
+  `StudioSnap-<version>.apk`); `main` may be ahead of the latest tag. How to cut one (by hand, or by
+  pushing a tag once the Actions secrets exist): `docs/RELEASING.md`; notes in `docs/release-notes/`.
 - **Release signing key:** `~/.config/studiosnap/keystore.jks` (+ `keystore.pass`), git-ignored.
   Alias `studiosnap`, cert SHA-256 `E1:D1:CB:07:3B:BD:58:25:4D:B0:EA:27:AA:31:E1:93:31:A8:2F:20:E1:E9:EC:01:1B:7D:04:1A:9F:79:69:7A`.
   Backed up to the user's Google Drive folder **"StudioSnap release key"** (the keystore base64 +
@@ -48,8 +49,13 @@ SDK 37), native Kotlin + Jetpack Compose, MIT. The floating **capture bar** is t
 - `studio/` — the annotation editor (`StudioScreen`, `EditorState`, `EmptyEditor` empty state).
 - `record/` — `RecordService` (MediaProjection → H.264 → `Mp4Writer`), `AudioCapture` (mic +
   AudioPlaybackCapture → AAC, timestamps in the monotonic clock), `RecOptions` (the bar's Record
-  toggles, persisted in `Settings`). `util/RecProbe` = adb checks of recorded audio (`debug recinfo`,
-  `debug tone`, `debug recopt mic|sys|both|off`) that never play or pull the content.
+  toggles, persisted in `Settings`), `CameraBubble` (the ChromeOS-style camera bubble: a CameraX
+  PreviewView in its own small accessibility overlay, recorded as part of the screen; bound to the
+  overlay's lifecycle, no camera FGS because the a11y binding already grants the camera capability).
+  `util/RecProbe` = adb checks of recorded audio (`debug recinfo`,
+  `debug tone`, `debug recopt mic|sys|both|off`) that never play or pull the content. Bubble checks:
+  `debug bubble cam on|off|test on|off|corner N|size|shape|switch|info`. Use `test on` before any
+  overlay screenshot so it shows a test pattern, never the user's face.
 - Icons: add a codepoint to `util/Sym.kt`, then regenerate the font subsets with
   `tools/subset_symbols.py` (instructions in the script).
 - Activities: `MainActivity` (native coral home), `StudioActivity` ("StudioSnap Editor", own

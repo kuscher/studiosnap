@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.projection.MediaProjectionConfig
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.util.Log
@@ -38,7 +39,14 @@ class RecordActivity : Activity() {
 
     private fun askConsent() {
         val pm = getSystemService(MediaProjectionManager::class.java)
-        startActivityForResult(pm.createScreenCaptureIntent(), request)
+        // The camera bubble is an overlay on the screen, not part of any app, so a "single app"
+        // recording would leave it out. With the camera on, ask for the entire screen.
+        val intent = if (Settings(this).recCamera) {
+            pm.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay())
+        } else {
+            pm.createScreenCaptureIntent()
+        }
+        startActivityForResult(intent, request)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
