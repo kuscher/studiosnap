@@ -6,7 +6,8 @@ SDK 37), native Kotlin + Jetpack Compose, MIT. The floating **capture bar** is t
 (this VM is ephemeral; commit + push at every milestone).
 
 ## Where things are
-- Repo: `~/studiosnap`, GitHub **kuscher/studiosnap** (private, MIT).
+- Repo: `~/studiosnap`, GitHub **kuscher/studiosnap** (**public**, MIT). Anything committed is world-readable:
+  keep secrets, keys, personal hosts and IPs out of commits, docs and PRs.
 - Releases: GitHub Releases — v0.1 and **v0.2 published** (APK attached); newer fixes may be ahead
   of the published tag, so republish when the user asks.
 - **Release signing key:** `~/.config/studiosnap/keystore.jks` (+ `keystore.pass`), git-ignored.
@@ -45,8 +46,15 @@ SDK 37), native Kotlin + Jetpack Compose, MIT. The floating **capture bar** is t
   card), `TextPopover`, `Hud` (palette + `SymText` icon renderer), `OnboardingScreen` (desktop
   first-run). `util/Sym.kt` = Material Symbols codepoints (font subset in `assets/fonts`).
 - `studio/` — the annotation editor (`StudioScreen`, `EditorState`, `EmptyEditor` empty state).
+- `record/` — `RecordService` (MediaProjection → H.264 → `Mp4Writer`), `AudioCapture` (mic +
+  AudioPlaybackCapture → AAC, timestamps in the monotonic clock), `RecOptions` (the bar's Record
+  toggles, persisted in `Settings`). `util/RecProbe` = adb checks of recorded audio (`debug recinfo`,
+  `debug tone`, `debug recopt mic|sys|both|off`) that never play or pull the content.
+- Icons: add a codepoint to `util/Sym.kt`, then regenerate the font subsets with
+  `tools/subset_symbols.py` (instructions in the script).
 - Activities: `MainActivity` (native coral home), `StudioActivity` ("StudioSnap Editor", own
-  launcher), `CaptureActivity` (one-tap trampoline), `SettingsActivity`, `RecordActivity`.
+  launcher), `CaptureActivity` (one-tap trampoline), `SettingsActivity`, `RecordActivity`,
+  `PermissionActivity` (asks for a Record toggle's runtime permission; the service can't).
 
 ## Build/run
 `./ss app` (build+install+enable+home), `./ss run` (…+open bar), `./ss key`, `./ss shot <tag>`,
@@ -59,7 +67,8 @@ Release and debug are signed differently, so `adb uninstall` before swapping bet
   scroll area (sticky headers/footers, floating buttons repeat / confuse the stitch). Fixed
   toolbars *outside* the scroll node are already excluded. Proper fix = detect the moving region
   between frames and keep each sticky band once.
-- Recording is full-screen only (per-window/region, audio, pause, GIF, countdown = deferred "4b").
+- Recording is full-screen only (per-window/region, pause, GIF, countdown = deferred "4b"). Audio
+  (mic and/or system audio) is in; with both on and no headphones, the speakers echo into the mic.
 - Text OCR uses exact accessibility text first, ML Kit OCR only when there's none (images/PDF/etc).
 
 ## Attribution for commits

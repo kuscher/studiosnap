@@ -4,7 +4,7 @@ The dev VM can restart and lose in-progress work, so this file is the source of 
 and how to continue. **Keep it current at every milestone**, and always `git push`.
 
 ## Where things live
-- Repo: `~/studiosnap`, GitHub `kuscher/studiosnap` (private, MIT).
+- Repo: `~/studiosnap`, GitHub `kuscher/studiosnap` (public, MIT).
 - Plan artifact: https://claude.ai/artifact/91HmujyCE6ScpqqU4F3aFB (UI/design source of truth).
 - Feasibility + device API research: `~/shotbook/` (`research/`, `probe/`) and memories
   `studiosnap`, `googlebook-capture-apis`.
@@ -160,6 +160,44 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
   ignore gravity (centre), so it's offset-positioned via params.x/y; sized small so only the card
   takes touches (the earlier full-screen card overlay ate all taps for 9s). Capped to one card.
 - Debug: `./ss debug ocr` (synthetic OCR self-test).
+
+## Recording audio: mic + system audio (2026-09-28, verified on device)
+- Record mode shows two toggles in the bar: **mic** (voice-over) and **system audio** (what apps
+  play, via AudioPlaybackCapture on the same MediaProjection). Persisted in `Settings`
+  (`recMic`, `recSystemAudio`); observable via `record/RecOptions`.
+- Permission: turning a toggle on without RECORD_AUDIO hides the bar (`ComposeOverlay.setHidden`:
+  invisible, untouchable, keys pass through; the system dialog draws under our overlay), opens
+  `PermissionActivity`, and brings the same bar back afterwards. Any runtime-permission change makes
+  Android RESTART this accessibility service (new object, all windows gone), so the bar's state
+  (frozen screen, mode, source) is also parked in `SnapService.parkedBar` and restored on connect.
+  Denied leaves the toggle off with a toast. `RecordActivity` re-asks before consent if the
+  permission was revoked while a toggle is on; a refusal records video only.
+- `RecordService` claims FGS type microphone only when audio is on AND permitted (asking for the
+  type without the permission throws and would kill the recording).
+- `Mp4Writer` waits for both tracks before starting the muxer (buffers early samples); an audio
+  source that dies before its first format is abandoned so the video still saves.
+- `AudioCapture`: 48 kHz stereo AAC 160 kbps. Mic is the clock when on; system audio feeds a
+  100 ms ring (silence-padded). Timestamps from `AudioRecord.getTimestamp` (monotonic, same clock
+  as the screen frames). AEC is attached when both are on, if available.
+- Verified on the Acer (x86_64): mic-only, system-only (440 Hz tone → 454 Hz measured), both
+  (880 Hz → 830 Hz measured, mixed with room sound), off (no audio track, unchanged), revoked+denied
+  (video only). Audio vs video start offset within ±26 ms. Debug: `recopt`, `tone`, `recinfo`.
+- Known limit: with both on and no headphones, the speakers echo into the mic.
+- The release APK used to carry INTERNET (and ACCESS_NETWORK_STATE): ML Kit's usage-logging
+  library (`com.google.android.datatransport:transport-backend-cct`) merges them in, so the
+  README's "no INTERNET permission" was not true of v0.1-v0.3. The manifest now removes INTERNET
+  (`tools:node="remove"`). ACCESS_NETWORK_STATE stays on purpose (it can't send anything, and
+  Android 14+ throws on the library's network-constrained upload job without it). Check with
+  `aapt2 dump permissions` on the release APK after any dependency change.
+- Review hardening (external code review, same day): the recording pill's window is pill-sized
+  at the top center (the old full-screen overlay took every touch while recording); the
+  notification has a Stop action; one recording at a time (UI + service guard); `Mp4Writer`
+  contains muxer errors, treats video as the required track (a sleeping screen sends no frames,
+  so early audio waits or drops) and starts without audio if audio is seconds late; the video
+  drain always reports done and gives up 3 s after Stop without end-of-stream; a failed save or
+  muxer stop is reported as a failure, not "saved"; a permission answer is parked in
+  `SnapService.pendingPermission` and applied on reconnect, and a reconnect mid-recording
+  restores the pill. `PermissionActivity` must NOT be `noHistory` (no result callbacks).
 
 ## Next — republish release w/ these fixes when user OKs; polish (scroll progress HUD, home desktop layout) + 4b recording (paused).
 Remaining Phase 1 work:

@@ -27,6 +27,8 @@ import io.github.kuscher.studiosnap.capture.ElementInfo
 import io.github.kuscher.studiosnap.capture.OcrEngine
 import io.github.kuscher.studiosnap.capture.Output
 import io.github.kuscher.studiosnap.capture.WinInfo
+import io.github.kuscher.studiosnap.record.RecOptions
+import io.github.kuscher.studiosnap.record.RecToggle
 import io.github.kuscher.studiosnap.ui.CaptureMode
 import io.github.kuscher.studiosnap.ui.CaptureRoot
 import io.github.kuscher.studiosnap.ui.CardData
@@ -55,16 +57,49 @@ class SnapService : AccessibilityService() {
     private var cardId = 0L
 
     private val settings by lazy { Settings(this) }
+    private val recOptions by lazy { RecOptions(settings) }
+    override fun onCreate() {
+        super.onCreate()
+        Log.i(TAG, "service created ${id()}")
+    }
+
+    override fun onDestroy() {
+        Log.i(TAG, "service destroyed ${id()}")
+        super.onDestroy()
+    }
+
+    /** Short identity for logs: Android recreates this service around some dialogs. */
+    private fun id() = Integer.toHexString(System.identityHashCode(this))
+
+    /**
+     * True between connect and unbind. Android can destroy this service object and create a new
+     * one around permission and consent dialogs; a late callback on the old object (a screenshot,
+     * a permission answer) must not put windows on screen that nothing alive can remove.
+     */
+    @Volatile private var alive = false
 
     override fun onServiceConnected() {
         instance = this
-        Log.i(TAG, "connected: flags=0x${Integer.toHexString(serviceInfo.flags)} caps=0x${Integer.toHexString(serviceInfo.capabilities)}")
+        alive = true
+        Log.i(TAG, "connected ${id()}: flags=0x${Integer.toHexString(serviceInfo.flags)} caps=0x${Integer.toHexString(serviceInfo.capabilities)}")
+        // Android can re-bind this service mid-flow (seen around permission dialogs), which tears
+        // down its overlays. Put back what a running recording needs, and finish a permission
+        // request that was answered while the service was away.
+        main.post {
+            if (io.github.kuscher.studiosnap.record.RecordingBus.active) showRecordingControls()
+            consumePendingPermission() // applies an answer that came in while we were away
+            restoreBar() // then brings back a bar parked by the old object
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
     override fun onInterrupt() {}
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
+        Log.i(TAG, "unbind ${id()}")
+        alive = false
+        // An open bar (or one hidden behind a permission dialog) comes back on the next object.
+        if (captureOverlay?.shown == true) parkBar()
         closeBar()
         captureOverlay?.destroy(); captureOverlay = null
         cardsOverlay?.destroy(); cardsOverlay = null
@@ -258,20 +293,28 @@ class SnapService : AccessibilityService() {
 
     /** [dry] = don't freeze the screen (transparent backdrop); used only for visual checks so an
      *  overlay screenshot shows StudioSnap's own UI and never the user's apps. */
-    fun openBar(initialSource: Source? = null, dry: Boolean = false) {
-        if (barShown()) return
+    fun openBar(initialSource: Source? = null, dry: Boolean = false, initialMode: CaptureMode? = null, frozen: Bitmap? = null) {
+        if (!alive || captureOverlay?.shown == true) return
         val t0 = SystemClock.elapsedRealtime()
-        val present = { bmp: Bitmap? ->
-            val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::startRecordFlow, ::startScrollFlow, ::dismissCapture)
+        val present = present@{ bmp: Bitmap? ->
+            if (!alive) return@present // unbound while the screenshot was in flight
+            val s = newSession()
             session = s
             s.onFrozen(bmp, initialSource)
+            if (initialMode != null) s.changeMode(initialMode)
             val ov = captureOverlay ?: ComposeOverlay(this).also { captureOverlay = it }
             ov.show { CaptureRoot(s, dark = isNight(), barAtTop = settings.barAtTop) }
-            Log.i(TAG, "bar shown in ${SystemClock.elapsedRealtime() - t0}ms frozen=${bmp != null} source=$initialSource")
+            Log.i(TAG, "bar shown in ${SystemClock.elapsedRealtime() - t0}ms frozen=${bmp != null} source=$initialSource mode=$initialMode")
         }
         if (dry) { present(null); return }
+        if (frozen != null) { present(frozen); return } // a restored bar keeps its frozen screen
         captureFullScreen(1) { bmp -> present(bmp) }
     }
+
+    private fun newSession() = CaptureSession(
+        this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::startRecordFlow, ::startScrollFlow, ::dismissCapture,
+        recOptions = recOptions.also { it.reload() }, onRecToggle = ::toggleRec,
+    )
 
     private fun onResult(bmp: Bitmap, kind: CaptureKind, label: String) {
         val name = Output.defaultName()
@@ -355,13 +398,14 @@ class SnapService : AccessibilityService() {
     }
 
     fun closeBar() { dismissCapture() }
-    fun barShown(): Boolean = captureOverlay?.shown == true
+    /** The bar is on screen and taking input (not hidden behind a permission dialog). */
+    fun barShown(): Boolean = captureOverlay?.let { it.shown && !it.hidden } == true
 
     // ---- test harness (safe synthetic content; never the user's screen) ----
 
     fun openBarTest() {
         if (barShown()) return
-        val s = CaptureSession(this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::startRecordFlow, ::startScrollFlow, ::dismissCapture)
+        val s = newSession()
         session = s
         s.onFrozen(testBitmap(), Source.AREA)
         val ov = captureOverlay ?: ComposeOverlay(this).also { captureOverlay = it }
@@ -404,6 +448,12 @@ class SnapService : AccessibilityService() {
 
     fun debugRecord() { startRecordFlow() }
     fun debugRecStop() { io.github.kuscher.studiosnap.record.RecordingBus.controller?.stop() }
+    /** adb-only: set the audio toggles without the bar ("mic", "sys", "both" or "off"). */
+    fun debugRecOptions(which: String) {
+        recOptions.set(RecToggle.MIC, which == "mic" || which == "both")
+        recOptions.set(RecToggle.SYSTEM_AUDIO, which == "sys" || which == "both")
+        Log.i(TAG, "rec options mic=${recOptions.mic} system=${recOptions.systemAudio}")
+    }
     fun debugRecFrame(tag: String) {
         val proj = arrayOf(android.provider.MediaStore.Video.Media._ID)
         contentResolver.query(
@@ -614,7 +664,75 @@ class SnapService : AccessibilityService() {
 
     // ---- recording ----
 
+    /** A Record-mode toggle was tapped. Turning one on may first need a runtime permission. */
+    private fun toggleRec(t: RecToggle) {
+        val on = !recOptions.isOn(t)
+        if (on && checkSelfPermission(t.permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            // Android's permission dialog draws under our full-screen overlay, so the bar steps
+            // aside (hidden, not closed) and comes back as it was once the user has answered.
+            // Granting a permission makes Android restart this service, which removes our windows,
+            // so the bar is also parked process-wide for whichever service object is alive then.
+            parkBar()
+            captureOverlay?.setHidden(true)
+            startActivity(io.github.kuscher.studiosnap.PermissionActivity.intent(this, t))
+            return
+        }
+        recOptions.set(t, on)
+        Log.i(TAG, "rec toggle ${t.name}=$on")
+    }
+
+    /** Applies a permission answer that [io.github.kuscher.studiosnap.PermissionActivity] parked. */
+    fun consumePendingPermission() {
+        if (!alive) return // the new service object applies it when it connects
+        val (t, granted) = pendingPermission ?: return
+        pendingPermission = null
+        onPermissionResult(t, granted)
+    }
+
+    private fun onPermissionResult(t: RecToggle, granted: Boolean) {
+        Log.i(TAG, "permission for ${t.name}: granted=$granted")
+        recOptions.reload()  // PermissionActivity already saved the toggle on a grant
+        if (!granted) {
+            android.widget.Toast.makeText(this, "${t.label} is off. Allow it for StudioSnap in App info › Permissions.", android.widget.Toast.LENGTH_LONG).show()
+        }
+        restoreBar()
+    }
+
+    /** Remembers the open bar (frozen screen, mode, source) so it can come back as it was. */
+    private fun parkBar() {
+        val s = session ?: return
+        parkedBar = ParkedBar(s.frozenBitmap, s.mode, s.source, SystemClock.elapsedRealtime())
+    }
+
+    /**
+     * Brings a parked bar back: the same window if this service object still has it, otherwise a
+     * new bar on the same frozen screen. Never while a permission dialog is up.
+     */
+    private fun restoreBar() {
+        if (io.github.kuscher.studiosnap.PermissionActivity.showing) return
+        val p = parkedBar ?: return
+        parkedBar = null
+        if (SystemClock.elapsedRealtime() - p.at > PARK_TTL_MS) return
+        val ov = captureOverlay
+        if (ov != null && ov.shown && ov.hidden && session != null) {
+            ov.setHidden(false)
+            session?.holdRecord()
+            Log.i(TAG, "bar back from behind the dialog")
+        } else {
+            openBar(initialSource = p.source, initialMode = p.mode, frozen = p.frozen)
+            Log.i(TAG, "bar restored (${p.mode})")
+        }
+    }
+
     private fun startRecordFlow() {
+        if (recordPending || io.github.kuscher.studiosnap.record.RecordService.instance != null) {
+            // One recording at a time: a second start would replace the running session.
+            Log.i(TAG, "record ignored: a recording is already starting, running or saving")
+            android.widget.Toast.makeText(this, "Already recording", android.widget.Toast.LENGTH_SHORT).show()
+            dismissCapture()
+            return
+        }
+        recordPending = true
         dismissCapture()
         startActivity(
             android.content.Intent(this, io.github.kuscher.studiosnap.RecordActivity::class.java)
@@ -623,12 +741,35 @@ class SnapService : AccessibilityService() {
     }
 
     fun onRecordingStarted() {
-        val ov = recordOverlay ?: ComposeOverlay(this).also { recordOverlay = it }
+        recordPending = false
+        showRecordingControls()
+    }
+
+    /**
+     * The recording pill, in a window only as big as the pill (top centre), so the rest of the
+     * screen stays clickable while recording: a full-screen overlay takes every touch, even where
+     * it's transparent. Accessibility overlays ignore gravity, so it's centred and offset upward.
+     */
+    private fun showRecordingControls() {
+        if (!alive) return
+        val density = resources.displayMetrics.density
+        val h = (PILL_HEIGHT_DP * density).toInt()
+        val screenH = getSystemService(WindowManager::class.java).maximumWindowMetrics.bounds.height()
+        val top = (PILL_TOP_DP * density).toInt()
+        val ov = recordOverlay ?: ComposeOverlay(
+            this,
+            widthSpec = WindowManager.LayoutParams.WRAP_CONTENT,
+            heightSpec = h,
+            gravity = Gravity.CENTER,
+            noLimits = false,
+            offsetY = top + h / 2 - screenH / 2,
+        ).also { recordOverlay = it }
         ov.show { RecordRoot(dark = isNight()) }
     }
 
     fun onRecordingSaved(ok: Boolean, durationMs: Long, thumb: Bitmap?) {
         recordOverlay?.dismiss()
+        recordPending = false
         if (!ok) return
         val img = (thumb ?: Bitmap.createBitmap(600, 380, Bitmap.Config.ARGB_8888).also { it.eraseColor(0xFF2A2D33.toInt()) }).asImageBitmap()
         val s = durationMs / 1000
@@ -639,7 +780,24 @@ class SnapService : AccessibilityService() {
 
     companion object {
         const val TAG = "StudioSnap"
+        private const val PILL_HEIGHT_DP = 52
+        private const val PILL_TOP_DP = 24
         @Volatile var instance: SnapService? = null
             private set
+        /**
+         * Record was pressed and the recorder hasn't started (the consent dialog is up). Process-
+         * wide, so it survives the service being recreated; cleared when the recording starts,
+         * when consent is refused, or when [io.github.kuscher.studiosnap.RecordActivity] goes away
+         * without an answer (say, its app window was closed from the taskbar).
+         */
+        @Volatile var recordPending = false
+
+        /** An open bar to bring back after a permission dialog or a service restart. */
+        class ParkedBar(val frozen: Bitmap?, val mode: CaptureMode, val source: Source, val at: Long)
+        @Volatile var parkedBar: ParkedBar? = null
+        private const val PARK_TTL_MS = 60_000L
+
+        /** A permission answer waiting for the service (it may be re-binding when it arrives). */
+        @Volatile var pendingPermission: Pair<RecToggle, Boolean>? = null
     }
 }

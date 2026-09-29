@@ -30,6 +30,16 @@ class Settings(ctx: Context) {
         get() = p.getBoolean(BAR_TOP, false)
         set(v) = p.edit().putBoolean(BAR_TOP, v).apply()
 
+    /** Record the microphone with screen recordings (a voice-over). Needs RECORD_AUDIO. */
+    var recMic: Boolean
+        get() = p.getBoolean(REC_MIC, false)
+        set(v) = p.edit().putBoolean(REC_MIC, v).apply()
+
+    /** Record the sound apps play (media, games) with screen recordings. Needs RECORD_AUDIO. */
+    var recSystemAudio: Boolean
+        get() = p.getBoolean(REC_SYSTEM, false)
+        set(v) = p.edit().putBoolean(REC_SYSTEM, v).apply()
+
     /** Set once the user finishes (or skips) the first-run onboarding. */
     var onboardingDone: Boolean
         get() = p.getBoolean(ONBOARDED, false)
@@ -42,5 +52,7 @@ class Settings(ctx: Context) {
         private const val CARD = "showCard"
         private const val BAR_TOP = "barAtTop"
         private const val ONBOARDED = "onboardingDone"
+        private const val REC_MIC = "recMic"
+        private const val REC_SYSTEM = "recSystemAudio"
     }
 }
