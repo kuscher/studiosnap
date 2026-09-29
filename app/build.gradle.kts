@@ -69,5 +69,9 @@ dependencies {
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
+    // Person segmentation for the camera bubble's cut-out mode: the LiteRT runtime runs Google's
+    // selfie segmentation model (assets/models, Apache 2.0) on the CPU. ~11 MB, vs ~41 MB for the
+    // ML Kit segmenter. LiteRT 1.x: 2.x adds download-service permissions this app doesn't need.
+    implementation("com.google.ai.edge.litert:litert:1.4.2")
     testImplementation("junit:junit:4.13.2")
 }

@@ -4,6 +4,7 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
+import android.util.Size
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.ViewConfiguration
@@ -14,9 +15,13 @@ import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.CameraInfo
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -41,6 +46,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -55,13 +63,20 @@ import io.github.kuscher.studiosnap.service.SnapService
 import io.github.kuscher.studiosnap.ui.SymText
 import io.github.kuscher.studiosnap.util.Settings
 import io.github.kuscher.studiosnap.util.Sym
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.hypot
 
 /**
  * The floating camera bubble, like ChromeOS's: a live camera preview in a small accessibility
  * overlay window that sits above everything, so a screen recording captures it exactly as you see
- * it. Drag it anywhere and it snaps to the nearest corner. Hover (or tap) for size, shape and
- * switch-camera controls. Size, shape, corner and camera persist in [Settings].
+ * it. Drag it anywhere: dropped near a corner it snaps into it, otherwise it stays where it was
+ * left (kept on screen). Hover (or tap) for size, shape and switch-camera controls. Size, shape,
+ * position and camera persist in [Settings].
+ *
+ * Cut-out mode removes the background ([Cutout], on-device segmentation): no frame, only the
+ * person. The window is still a square, so its transparent parts still take clicks.
  *
  * The camera is bound to the overlay window's own lifecycle, so it only runs while the bubble is
  * on screen. No camera foreground service is needed: the accessibility binding already gives the
@@ -87,6 +102,14 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
         private set
     var cameraCount by mutableStateOf(0)
         private set
+    var cutout by mutableStateOf(settings.bubbleCutout)
+        private set
+    /** Cut-out mode's latest frame: the person, with a transparent background. */
+    var cutoutFrame by mutableStateOf<ImageBitmap?>(null)
+        private set
+    private var cutoutActive = false
+    private var segmenter: Cutout? = null
+    private var segmenterThread: ExecutorService? = null
 
     val shown: Boolean get() = overlay != null
 
@@ -103,7 +126,7 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
         current?.takeIf { it !== this }?.hide()
         current = this
         val px = windowPx()
-        val (x, y) = cornerOffset(settings.bubbleCorner, px)
+        val (x, y) = homeOffset(px)
         val ov = ComposeOverlay(
             ctx, widthSpec = px, heightSpec = px, gravity = Gravity.CENTER,
             noLimits = false, offsetX = x, offsetY = y,
@@ -120,6 +143,8 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
         snap?.cancel()
         runCatching { provider?.unbindAll() }
         previewView = null
+        cutoutActive = false
+        stopSegmenter()
         ov.destroy()
         Log.i(SnapService.TAG, "bubble ${Integer.toHexString(System.identityHashCode(this))} hidden")
     }
@@ -137,8 +162,17 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
         val ov = overlay ?: return
         val px = windowPx()
         ov.resize(px, px)
-        val (x, y) = cornerOffset(settings.bubbleCorner, px)
+        // A cornered bubble stays in its corner; a free one keeps its center, pulled back on
+        // screen if the bigger size would push it over an edge.
+        val (x, y) = if (settings.bubbleCorner in 0..3) cornerOffset(settings.bubbleCorner, px) else clampOffset(ov.params.x, ov.params.y, px)
         ov.moveTo(x, y)
+        if (settings.bubbleCorner !in 0..3) saveFree(x, y)
+    }
+
+    /** Background removal on/off. The bubble's content switches, which rebinds the camera. */
+    fun toggleCutout() {
+        cutout = !cutout
+        settings.bubbleCutout = cutout
     }
 
     fun toggleShape() {
@@ -163,7 +197,8 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
     fun describe(): String {
         val p = overlay?.params
         return "bubble shown=$shown window=${p?.width}x${p?.height} at=(${p?.x},${p?.y}) corner=${settings.bubbleCorner} " +
-            "large=$large square=$square camera=$cameraId of $cameraCount test=$testPattern"
+            "free=(%.2f,%.2f) large=$large square=$square cutout=$cutout camera=$cameraId of $cameraCount test=$testPattern"
+                .format(settings.bubbleFreeX, settings.bubbleFreeY)
     }
 
     // ---- camera ----
@@ -179,37 +214,95 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
 
     internal fun onPreviewGone(pv: PreviewView) {
         // Always drop this preview's observer (the overlay's lifecycle outlives each preview when
-        // the bubble is re-added); only unbind if it's still the current preview.
+        // the bubble is re-added); only rebind if it's still the current preview.
         streamObserver?.takeIf { it.first === pv }?.let { (v, o) -> v.previewStreamState.removeObserver(o); streamObserver = null }
         if (previewView !== pv) return
         previewView = null
-        runCatching { provider?.unbindAll() }
+        bindCamera()
     }
 
+    internal fun onCutoutShown() {
+        cutoutActive = true
+        bindCamera()
+    }
+
+    internal fun onCutoutGone() {
+        cutoutActive = false
+        stopSegmenter()
+        // Compose may already have created the normal preview (an AndroidView is made during
+        // composition, before this cleanup runs): bind whatever should show now, not nothing.
+        bindCamera()
+    }
+
+    private fun stopSegmenter() {
+        segmenter?.close(); segmenter = null
+        segmenterThread?.shutdown(); segmenterThread = null
+        cutoutFrame = null
+    }
+
+    /**
+     * Binds the camera to the bubble: a Preview into the PreviewView normally, or (cut-out mode)
+     * an ImageAnalysis stream through [Cutout] instead. Never both, so cut-out doesn't double the
+     * camera work.
+     */
     private fun bindCamera() {
-        val pv = previewView ?: return
+        val pv = previewView
+        // What should show is decided by the cut-out setting; during a switch, both views can
+        // exist for a moment.
+        val cut = cutout && cutoutActive
+        if (!cut && pv == null) { runCatching { provider?.unbindAll() }; return }
         val owner = overlay ?: return
         val future = ProcessCameraProvider.getInstance(ctx)
         future.addListener({
             val p = runCatching { future.get() }.getOrElse { Log.w(SnapService.TAG, "camera provider: $it"); return@addListener }
-            if (overlay !== owner || previewView !== pv) return@addListener // hidden or replaced meanwhile
+            // Hidden, replaced or switched mode meanwhile.
+            if (overlay !== owner || (cutout && cutoutActive) != cut || (!cut && previewView !== pv)) return@addListener
             provider = p
             cameras = p.availableCameraInfos
             cameraCount = cameras.size
             val info = pick(cameras) ?: run { Log.w(SnapService.TAG, "bubble: no camera"); return@addListener }
-            val preview = Preview.Builder().build().also { it.setSurfaceProvider(pv.surfaceProvider) }
+            val useCase = if (cut) cutoutAnalysis(info) else Preview.Builder().build().also { it.setSurfaceProvider(pv!!.surfaceProvider) }
             try {
                 p.unbindAll()
-                p.bindToLifecycle(owner, info.cameraSelector, preview)
+                p.bindToLifecycle(owner, info.cameraSelector, useCase)
             } catch (e: Exception) {
                 Log.w(SnapService.TAG, "bubble: camera bind failed: $e"); return@addListener
             }
             // PreviewView mirrors a front camera itself; mirror external webcams too, so the
             // bubble behaves like a mirror whichever camera it shows.
-            pv.scaleX = if (info.lensFacing == CameraSelector.LENS_FACING_EXTERNAL) -1f else 1f
+            if (!cut) pv!!.scaleX = if (info.lensFacing == CameraSelector.LENS_FACING_EXTERNAL) -1f else 1f
             cameraId = idOf(info)
-            Log.i(SnapService.TAG, "bubble camera $cameraId facing=${info.lensFacing} of ${cameras.size}")
+            Log.i(SnapService.TAG, "bubble camera $cameraId facing=${info.lensFacing} of ${cameras.size} cutout=$cut")
         }, ctx.mainExecutor)
+    }
+
+    private fun cutoutAnalysis(info: CameraInfo): ImageAnalysis {
+        stopSegmenter()
+        val thread = Executors.newSingleThreadExecutor().also { segmenterThread = it }
+        lateinit var seg: Cutout
+        // Mirror front cameras and webcams (a back camera isn't a mirror view).
+        // At most one frame waits for the UI: a newer one replaces it, so slow drawing can't pile
+        // frames up.
+        val pending = AtomicReference<ImageBitmap?>(null)
+        seg = Cutout(ctx, mirror = info.lensFacing != CameraSelector.LENS_FACING_BACK) { frame ->
+            if (pending.getAndSet(frame.asImageBitmap()) == null) {
+                ctx.mainExecutor.execute {
+                    val img = pending.getAndSet(null)
+                    if (segmenter === seg && img != null) cutoutFrame = img
+                }
+            }
+        }
+        segmenter = seg
+        return ImageAnalysis.Builder()
+            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .setResolutionSelector(
+                ResolutionSelector.Builder()
+                    .setResolutionStrategy(ResolutionStrategy(Size(1280, 960), ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER))
+                    .build(),
+            )
+            .build()
+            .also { it.setAnalyzer(thread, seg) }
     }
 
     /** The saved camera, else the front camera, else an external webcam, else whatever exists. */
@@ -262,19 +355,43 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
                 if (!dragging && hypot(dx, dy) > touchSlop) dragging = true
                 if (dragging) ov.moveTo(startX + dx.toInt(), startY + dy.toInt())
             }
-            MotionEvent.ACTION_UP -> if (dragging) snapToNearestCorner() else onTap()
-            MotionEvent.ACTION_CANCEL -> if (dragging) snapToNearestCorner()
+            MotionEvent.ACTION_UP -> if (dragging) settle() else onTap()
+            MotionEvent.ACTION_CANCEL -> if (dragging) settle()
         }
         return true
     }
 
-    private fun snapToNearestCorner() {
+    /**
+     * After a drag: dropped near a corner, the bubble glides into it (magnetic corners, like
+     * ChromeOS); anywhere else it stays where it was dropped, kept fully on screen. Either way the
+     * position is remembered.
+     */
+    private fun settle() {
         val ov = overlay ?: return
-        // Offsets are from the screen centre, so the sign says which half the bubble is in.
-        val corner = (if (ov.params.y > 0) 2 else 0) + (if (ov.params.x > 0) 1 else 0)
-        settings.bubbleCorner = corner
-        val (tx, ty) = cornerOffset(corner, ov.params.width)
+        val px = ov.params.width
+        // The nearest of all four corner spots (they aren't symmetric: insets and the taskbar).
+        val corner = (0..3).minBy { c ->
+            val (x, y) = cornerOffset(c, px)
+            hypot((ov.params.x - x).toFloat(), (ov.params.y - y).toFloat())
+        }
+        val (cx, cy) = cornerOffset(corner, px)
+        val (tx, ty) = if (hypot((ov.params.x - cx).toFloat(), (ov.params.y - cy).toFloat()) <= SNAP_DP * density) {
+            settings.bubbleCorner = corner
+            Log.i(SnapService.TAG, "bubble snapped to corner $corner")
+            cx to cy
+        } else {
+            val free = clampOffset(ov.params.x, ov.params.y, px)
+            settings.bubbleCorner = -1
+            saveFree(free.first, free.second)
+            Log.i(SnapService.TAG, "bubble left free at (%.2f, %.2f)".format(settings.bubbleFreeX, settings.bubbleFreeY))
+            free
+        }
+        animateTo(ov, tx, ty)
+    }
+
+    private fun animateTo(ov: ComposeOverlay, tx: Int, ty: Int) {
         val fx = ov.params.x; val fy = ov.params.y
+        if (fx == tx && fy == ty) return
         snap = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 180
             addUpdateListener {
@@ -283,7 +400,33 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
             }
             start()
         }
-        Log.i(SnapService.TAG, "bubble snapped to corner $corner")
+    }
+
+    /** Where the bubble belongs: its corner, or its remembered free spot (kept on screen). */
+    private fun homeOffset(px: Int): Pair<Int, Int> {
+        val corner = settings.bubbleCorner
+        if (corner in 0..3) return cornerOffset(corner, px)
+        val m = wm.maximumWindowMetrics.bounds
+        val x = (settings.bubbleFreeX * m.width() - m.width() / 2f).toInt()
+        val y = (settings.bubbleFreeY * m.height() - m.height() / 2f).toInt()
+        return clampOffset(x, y, px)
+    }
+
+    /** Keeps a bubble of size [px] fully on screen: between the top-left and bottom-right corners. */
+    private fun clampOffset(x: Int, y: Int, px: Int): Pair<Int, Int> {
+        val (minX, minY) = cornerOffset(0, px)
+        val (maxX, maxY) = cornerOffset(3, px)
+        return fit(x, minX, maxX) to fit(y, minY, maxY)
+    }
+
+    /** [v] kept in [lo]..[hi]; halfway between when the bubble can't fit at all (tiny display). */
+    private fun fit(v: Int, lo: Int, hi: Int): Int = if (lo > hi) (lo + hi) / 2 else v.coerceIn(lo, hi)
+
+    /** Remembers a free bubble's center as fractions of the screen. */
+    private fun saveFree(x: Int, y: Int) {
+        val m = wm.maximumWindowMetrics.bounds
+        settings.bubbleFreeX = (m.width() / 2f + x) / m.width()
+        settings.bubbleFreeY = (m.height() / 2f + y) / m.height()
     }
 
     companion object {
@@ -292,6 +435,8 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
         private const val PAD_DP = 6
         private const val MARGIN_DP = 16
         private const val TASKBAR_FLOOR_DP = 72
+        /** How close to a corner (dp) a dropped bubble has to be to snap into it. */
+        private const val SNAP_DP = 64
 
         /**
          * adb visual checks: draw a test pattern instead of the camera image. Process-wide, not
@@ -334,12 +479,21 @@ private fun BubbleContent(b: CameraBubble) {
                 }
             }
             .padding(6.dp)
-            .shadow(6.dp, shape)
-            .clip(shape)
-            .background(Color.Black),
+            // Cut-out mode has no frame at all: only the person floats over the screen.
+            .then(if (b.cutout) Modifier else Modifier.shadow(6.dp, shape).clip(shape).background(Color.Black)),
     ) {
-        if (CameraBubble.testPattern) {
-            Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFFC23B1A), Color(0xFF3B6FD6)))))
+        val gradient = Brush.linearGradient(listOf(Color(0xFFC23B1A), Color(0xFF3B6FD6)))
+        if (CameraBubble.testPattern && b.cutout) {
+            // A gradient disc on a transparent square: checks cut-out transparency with no camera.
+            Box(Modifier.fillMaxSize(0.6f).align(Alignment.Center).background(gradient, CircleShape))
+        } else if (CameraBubble.testPattern) {
+            Box(Modifier.fillMaxSize().background(gradient))
+        } else if (b.cutout) {
+            b.cutoutFrame?.let { Image(it, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+            DisposableEffect(Unit) {
+                b.onCutoutShown()
+                onDispose { b.onCutoutGone() }
+            }
         } else {
             var view by remember { mutableStateOf<PreviewView?>(null) }
             AndroidView(
@@ -356,7 +510,12 @@ private fun BubbleContent(b: CameraBubble) {
         }
         // Drag and tap surface; the controls sit above it and take their own clicks.
         Box(Modifier.fillMaxSize().pointerInteropFilter { ev -> b.onTouch(ev) { tapped = !tapped } })
-        Box(Modifier.fillMaxSize().border(2.dp, Color.White.copy(alpha = 0.85f), shape))
+        if (!b.cutout) {
+            Box(Modifier.fillMaxSize().border(2.dp, Color.White.copy(alpha = 0.85f), shape))
+        } else if (hovered || tapped) {
+            // No frame in cut-out mode, so show where the draggable area is while it's in use.
+            Box(Modifier.fillMaxSize().border(1.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(12.dp)))
+        }
         if (hovered || tapped) {
             Row(
                 Modifier
@@ -367,7 +526,8 @@ private fun BubbleContent(b: CameraBubble) {
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 BubbleButton(if (b.large) Sym.CLOSE_FULLSCREEN else Sym.OPEN_IN_FULL, if (b.large) "Smaller" else "Larger") { b.toggleSize() }
-                BubbleButton(if (b.square) Sym.CIRCLE else Sym.SQUARE, if (b.square) "Circle" else "Rounded square") { b.toggleShape() }
+                if (!b.cutout) BubbleButton(if (b.square) Sym.CIRCLE else Sym.SQUARE, if (b.square) "Circle" else "Rounded square") { b.toggleShape() }
+                BubbleButton(if (b.cutout) Sym.FRAME_PERSON else Sym.BACKGROUND_REPLACE, if (b.cutout) "Show background" else "Remove background") { b.toggleCutout() }
                 if (b.cameraCount > 1) BubbleButton(Sym.CAMERASWITCH, "Switch camera") { b.switchCamera() }
             }
         }
