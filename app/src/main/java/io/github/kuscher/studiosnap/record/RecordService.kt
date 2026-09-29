@@ -92,6 +92,9 @@ class RecordService : Service(), RecordController {
         } catch (e: Exception) {
             Log.e(SnapService.TAG, "record start failed: $e")
             cleanup(); stopSelf()
+            // Cleared here too: the accessibility service may be between objects right now (it's
+            // re-bound around the consent dialog), and a stuck flag keeps the camera bubble up.
+            SnapService.recordPending = false
             SnapService.instance?.onRecordingSaved(false, 0L, null)
             return START_NOT_STICKY
         }
@@ -100,6 +103,7 @@ class RecordService : Service(), RecordController {
         RecordingBus.active = true
         startedAt = SystemClock.elapsedRealtime()
         ticker.post(tick)
+        SnapService.recordPending = false // even with no service object to tell (see above)
         SnapService.instance?.onRecordingStarted()
         return START_NOT_STICKY
     }
