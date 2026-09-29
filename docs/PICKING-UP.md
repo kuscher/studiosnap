@@ -237,7 +237,9 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
   256x256, Apache 2.0; RGB in [0, 1] -> one person-probability channel) on LiteRT 1.4.2 on the CPU.
   The camera binds ImageAnalysis (1280x960, RGBA) instead of the Preview in this mode; frames are
   rotated, mirrored and center-cropped to a square. The model runs on its own thread on the newest
-  frame; each camera frame is drawn with the latest mask (DST_IN, bilinear upscale). Acer: 29.5 fps
+  frame; each camera frame is drawn with the latest mask (DST_IN, bilinear upscale) into a private
+  buffer and handed to the UI as an immutable copy (<= 512 px; one pending frame at most), so the UI
+  never draws a half-rewritten frame. Memory is a GC sawtooth (~145-200 MB), no growth. Acer: 29.5 fps
   video and mask, ~10 ms per run, memory flat over a minute. Recorded transparency checked with
   `debug recpixel` (bubble corners match the screen behind them).
 - Tried and dropped (all on the Acer): the landscape model (256x144 mask, coarse edges), ML Kit's
@@ -249,7 +251,8 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
   cleanup runs: when the cut-out switches off, the cleanup must rebind (not just unbind) or the
   preview is left without a camera.
 - **Free placement**: a dropped bubble stays where it's left (clamped on screen); within 64 dp of a
-  corner spot it snaps into the corner. `Settings.bubbleCorner` is -1 when free, with the center in
+  corner spot (the nearest of all four; they aren't symmetric) it snaps into the corner. Clamping
+  centers the bubble on an axis where it can't fit (tiny displays) instead of throwing. `Settings.bubbleCorner` is -1 when free, with the center in
   `bubbleFreeX` / `bubbleFreeY` (fractions of the screen).
 - **Settings button**: the bar's Options (tune) button closes the bar and opens Settings.
 - Known limits: the bubble window is a square, so its see-through part still takes clicks; the

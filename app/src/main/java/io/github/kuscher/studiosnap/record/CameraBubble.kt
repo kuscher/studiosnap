@@ -65,6 +65,7 @@ import io.github.kuscher.studiosnap.util.Settings
 import io.github.kuscher.studiosnap.util.Sym
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.hypot
 
 /**
@@ -165,6 +166,7 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
         // screen if the bigger size would push it over an edge.
         val (x, y) = if (settings.bubbleCorner in 0..3) cornerOffset(settings.bubbleCorner, px) else clampOffset(ov.params.x, ov.params.y, px)
         ov.moveTo(x, y)
+        if (settings.bubbleCorner !in 0..3) saveFree(x, y)
     }
 
     /** Background removal on/off. The bubble's content switches, which rebinds the camera. */
@@ -279,9 +281,16 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
         val thread = Executors.newSingleThreadExecutor().also { segmenterThread = it }
         lateinit var seg: Cutout
         // Mirror front cameras and webcams (a back camera isn't a mirror view).
+        // At most one frame waits for the UI: a newer one replaces it, so slow drawing can't pile
+        // frames up.
+        val pending = AtomicReference<ImageBitmap?>(null)
         seg = Cutout(ctx, mirror = info.lensFacing != CameraSelector.LENS_FACING_BACK) { frame ->
-            val img = frame.asImageBitmap()
-            ctx.mainExecutor.execute { if (segmenter === seg) cutoutFrame = img }
+            if (pending.getAndSet(frame.asImageBitmap()) == null) {
+                ctx.mainExecutor.execute {
+                    val img = pending.getAndSet(null)
+                    if (segmenter === seg && img != null) cutoutFrame = img
+                }
+            }
         }
         segmenter = seg
         return ImageAnalysis.Builder()
@@ -360,8 +369,11 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
     private fun settle() {
         val ov = overlay ?: return
         val px = ov.params.width
-        // Offsets are from the screen center, so the sign says which half the bubble is in.
-        val corner = (if (ov.params.y > 0) 2 else 0) + (if (ov.params.x > 0) 1 else 0)
+        // The nearest of all four corner spots (they aren't symmetric: insets and the taskbar).
+        val corner = (0..3).minBy { c ->
+            val (x, y) = cornerOffset(c, px)
+            hypot((ov.params.x - x).toFloat(), (ov.params.y - y).toFloat())
+        }
         val (cx, cy) = cornerOffset(corner, px)
         val (tx, ty) = if (hypot((ov.params.x - cx).toFloat(), (ov.params.y - cy).toFloat()) <= SNAP_DP * density) {
             settings.bubbleCorner = corner
@@ -369,10 +381,8 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
             cx to cy
         } else {
             val free = clampOffset(ov.params.x, ov.params.y, px)
-            val m = wm.maximumWindowMetrics.bounds
             settings.bubbleCorner = -1
-            settings.bubbleFreeX = (m.width() / 2f + free.first) / m.width()
-            settings.bubbleFreeY = (m.height() / 2f + free.second) / m.height()
+            saveFree(free.first, free.second)
             Log.i(SnapService.TAG, "bubble left free at (%.2f, %.2f)".format(settings.bubbleFreeX, settings.bubbleFreeY))
             free
         }
@@ -406,7 +416,17 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
     private fun clampOffset(x: Int, y: Int, px: Int): Pair<Int, Int> {
         val (minX, minY) = cornerOffset(0, px)
         val (maxX, maxY) = cornerOffset(3, px)
-        return x.coerceIn(minX, maxX) to y.coerceIn(minY, maxY)
+        return fit(x, minX, maxX) to fit(y, minY, maxY)
+    }
+
+    /** [v] kept in [lo]..[hi]; halfway between when the bubble can't fit at all (tiny display). */
+    private fun fit(v: Int, lo: Int, hi: Int): Int = if (lo > hi) (lo + hi) / 2 else v.coerceIn(lo, hi)
+
+    /** Remembers a free bubble's center as fractions of the screen. */
+    private fun saveFree(x: Int, y: Int) {
+        val m = wm.maximumWindowMetrics.bounds
+        settings.bubbleFreeX = (m.width() / 2f + x) / m.width()
+        settings.bubbleFreeY = (m.height() / 2f + y) / m.height()
     }
 
     companion object {

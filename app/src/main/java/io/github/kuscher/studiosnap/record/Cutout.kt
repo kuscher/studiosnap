@@ -55,9 +55,10 @@ class Cutout(
     private val modelBusy = AtomicBoolean(false)
     private val maskLock = Any()
 
-    // Two output bitmaps, alternated, so the UI never draws a frame while it's being rewritten.
-    private val outputs = arrayOfNulls<Bitmap>(2)
-    private var next = 0
+    // Frames are composed in this private buffer; the UI only ever gets an immutable copy, so it
+    // can't draw a frame that is being rewritten (which could flash the unmasked background).
+    private var work: Bitmap? = null
+    private val framePaint = Paint(Paint.FILTER_BITMAP_FLAG)
     @Volatile private var closed = false
 
     private var frames = 0
@@ -172,17 +173,20 @@ class Cutout(
         synchronized(maskLock) { mask.setPixels(maskPixels, 0, IN_W, 0, 0, IN_W, IN_H) }
     }
 
-    /** The frame with the (bilinearly upscaled) mask as its alpha, in the next output bitmap. */
+    /**
+     * The frame with the (bilinearly upscaled) mask as its alpha, as a new immutable bitmap. At
+     * most [MAX_OUT] px square: the large bubble is ~415 px, so more would only cost memory.
+     */
     private fun compose(frame: Bitmap): Bitmap {
-        val w = frame.width; val h = frame.height
-        val out = outputs[next]?.takeIf { it.width == w && it.height == h }
-            ?: Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also { outputs[next] = it }
-        next = 1 - next
-        val canvas = Canvas(out)
+        val side = minOf(frame.width, MAX_OUT)
+        val buf = work?.takeIf { it.width == side }
+            ?: Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888).also { work = it }
+        val canvas = Canvas(buf)
+        val dst = Rect(0, 0, side, side)
         canvas.drawColor(0, PorterDuff.Mode.CLEAR)
-        canvas.drawBitmap(frame, 0f, 0f, null)
-        synchronized(maskLock) { canvas.drawBitmap(mask, null, Rect(0, 0, w, h), maskPaint) }
-        return out
+        canvas.drawBitmap(frame, null, dst, framePaint)
+        synchronized(maskLock) { canvas.drawBitmap(mask, null, dst, maskPaint) }
+        return buf.copy(Bitmap.Config.ARGB_8888, false)
     }
 
     private fun smoothstep(m: Float): Int {
@@ -214,6 +218,7 @@ class Cutout(
         const val IN_W = 256
         const val IN_H = 256
         const val CLASSES = 1
+        const val MAX_OUT = 512
         const val THREADS = 6
         /** Masks faster than this get blended with the previous one (see segment()). */
         const val FAST_MASK_MS = 50L
