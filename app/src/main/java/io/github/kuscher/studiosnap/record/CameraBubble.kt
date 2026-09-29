@@ -70,8 +70,9 @@ import kotlin.math.hypot
 /**
  * The floating camera bubble, like ChromeOS's: a live camera preview in a small accessibility
  * overlay window that sits above everything, so a screen recording captures it exactly as you see
- * it. Drag it anywhere and it snaps to the nearest corner. Hover (or tap) for size, shape and
- * switch-camera controls. Size, shape, corner and camera persist in [Settings].
+ * it. Drag it anywhere: dropped near a corner it snaps into it, otherwise it stays where it was
+ * left (kept on screen). Hover (or tap) for size, shape and switch-camera controls. Size, shape,
+ * position and camera persist in [Settings].
  *
  * Cut-out mode removes the background ([Cutout], on-device segmentation): no frame, only the
  * person. The window is still a square, so its transparent parts still take clicks.
@@ -124,7 +125,7 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
         current?.takeIf { it !== this }?.hide()
         current = this
         val px = windowPx()
-        val (x, y) = cornerOffset(settings.bubbleCorner, px)
+        val (x, y) = homeOffset(px)
         val ov = ComposeOverlay(
             ctx, widthSpec = px, heightSpec = px, gravity = Gravity.CENTER,
             noLimits = false, offsetX = x, offsetY = y,
@@ -160,7 +161,9 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
         val ov = overlay ?: return
         val px = windowPx()
         ov.resize(px, px)
-        val (x, y) = cornerOffset(settings.bubbleCorner, px)
+        // A cornered bubble stays in its corner; a free one keeps its center, pulled back on
+        // screen if the bigger size would push it over an edge.
+        val (x, y) = if (settings.bubbleCorner in 0..3) cornerOffset(settings.bubbleCorner, px) else clampOffset(ov.params.x, ov.params.y, px)
         ov.moveTo(x, y)
     }
 
@@ -192,7 +195,8 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
     fun describe(): String {
         val p = overlay?.params
         return "bubble shown=$shown window=${p?.width}x${p?.height} at=(${p?.x},${p?.y}) corner=${settings.bubbleCorner} " +
-            "large=$large square=$square cutout=$cutout camera=$cameraId of $cameraCount test=$testPattern"
+            "free=(%.2f,%.2f) large=$large square=$square cutout=$cutout camera=$cameraId of $cameraCount test=$testPattern"
+                .format(settings.bubbleFreeX, settings.bubbleFreeY)
     }
 
     // ---- camera ----
@@ -342,19 +346,42 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
                 if (!dragging && hypot(dx, dy) > touchSlop) dragging = true
                 if (dragging) ov.moveTo(startX + dx.toInt(), startY + dy.toInt())
             }
-            MotionEvent.ACTION_UP -> if (dragging) snapToNearestCorner() else onTap()
-            MotionEvent.ACTION_CANCEL -> if (dragging) snapToNearestCorner()
+            MotionEvent.ACTION_UP -> if (dragging) settle() else onTap()
+            MotionEvent.ACTION_CANCEL -> if (dragging) settle()
         }
         return true
     }
 
-    private fun snapToNearestCorner() {
+    /**
+     * After a drag: dropped near a corner, the bubble glides into it (magnetic corners, like
+     * ChromeOS); anywhere else it stays where it was dropped, kept fully on screen. Either way the
+     * position is remembered.
+     */
+    private fun settle() {
         val ov = overlay ?: return
-        // Offsets are from the screen centre, so the sign says which half the bubble is in.
+        val px = ov.params.width
+        // Offsets are from the screen center, so the sign says which half the bubble is in.
         val corner = (if (ov.params.y > 0) 2 else 0) + (if (ov.params.x > 0) 1 else 0)
-        settings.bubbleCorner = corner
-        val (tx, ty) = cornerOffset(corner, ov.params.width)
+        val (cx, cy) = cornerOffset(corner, px)
+        val (tx, ty) = if (hypot((ov.params.x - cx).toFloat(), (ov.params.y - cy).toFloat()) <= SNAP_DP * density) {
+            settings.bubbleCorner = corner
+            Log.i(SnapService.TAG, "bubble snapped to corner $corner")
+            cx to cy
+        } else {
+            val free = clampOffset(ov.params.x, ov.params.y, px)
+            val m = wm.maximumWindowMetrics.bounds
+            settings.bubbleCorner = -1
+            settings.bubbleFreeX = (m.width() / 2f + free.first) / m.width()
+            settings.bubbleFreeY = (m.height() / 2f + free.second) / m.height()
+            Log.i(SnapService.TAG, "bubble left free at (%.2f, %.2f)".format(settings.bubbleFreeX, settings.bubbleFreeY))
+            free
+        }
+        animateTo(ov, tx, ty)
+    }
+
+    private fun animateTo(ov: ComposeOverlay, tx: Int, ty: Int) {
         val fx = ov.params.x; val fy = ov.params.y
+        if (fx == tx && fy == ty) return
         snap = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 180
             addUpdateListener {
@@ -363,7 +390,23 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
             }
             start()
         }
-        Log.i(SnapService.TAG, "bubble snapped to corner $corner")
+    }
+
+    /** Where the bubble belongs: its corner, or its remembered free spot (kept on screen). */
+    private fun homeOffset(px: Int): Pair<Int, Int> {
+        val corner = settings.bubbleCorner
+        if (corner in 0..3) return cornerOffset(corner, px)
+        val m = wm.maximumWindowMetrics.bounds
+        val x = (settings.bubbleFreeX * m.width() - m.width() / 2f).toInt()
+        val y = (settings.bubbleFreeY * m.height() - m.height() / 2f).toInt()
+        return clampOffset(x, y, px)
+    }
+
+    /** Keeps a bubble of size [px] fully on screen: between the top-left and bottom-right corners. */
+    private fun clampOffset(x: Int, y: Int, px: Int): Pair<Int, Int> {
+        val (minX, minY) = cornerOffset(0, px)
+        val (maxX, maxY) = cornerOffset(3, px)
+        return x.coerceIn(minX, maxX) to y.coerceIn(minY, maxY)
     }
 
     companion object {
@@ -372,6 +415,8 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
         private const val PAD_DP = 6
         private const val MARGIN_DP = 16
         private const val TASKBAR_FLOOR_DP = 72
+        /** How close to a corner (dp) a dropped bubble has to be to snap into it. */
+        private const val SNAP_DP = 64
 
         /**
          * adb visual checks: draw a test pattern instead of the camera image. Process-wide, not
