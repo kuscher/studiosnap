@@ -72,7 +72,7 @@ To update, just install a newer `StudioSnap.apk` over the old one — your setti
 
 - In the floating bar, pick a **mode** (Screenshot / Record) and a **source**:
   **Area** (drag a box), **Sections** (click a UI element), **Window**, **Screen**, **Scroll** (full page — *beta*), or **Text**.
-- In **Record** mode, the camera toggle shows a live **camera bubble** that's recorded with the screen. Drag it and it snaps to the nearest corner; hover over it to make it bigger, switch between a circle and a rounded square, or switch cameras when a webcam is plugged in.
+- In **Record** mode, the camera toggle shows a live **camera bubble** that's recorded with the screen. Drag it and it snaps to the nearest corner; hover over it to make it bigger, switch between a circle and a rounded square, or switch cameras when a webcam is plugged in. **Remove background** leaves just you (head and body) floating over the screen, with no box around you.
 - The microphone and speaker toggles add your **voice** (a voice-over) and/or the **system audio** your apps play. Android asks for the microphone permission the first time. With both on, wear headphones so your speakers don't echo into the mic.
 - After a capture, a card appears in the corner — **Copy** it again, hit **Edit** to open the editor, or dismiss it.
 - In the editor, the **Frame** panel adds a background, padding and rounded corners; **Layers** lists everything you've drawn.
@@ -100,6 +100,8 @@ StudioSnap is a **personal hobby project by Alexander Kuscher**, built in my own
 ## License
 
 [MIT](LICENSE) © 2026 Alexander Kuscher
+
+Background removal uses Google's [MediaPipe Selfie Segmentation](https://storage.googleapis.com/mediapipe-assets/Model%20Card%20MediaPipe%20Selfie%20Segmentation.pdf) model (Apache License 2.0), bundled in the app and run on your device with [LiteRT](https://ai.google.dev/edge/litert).
 
 <div align="center">
 

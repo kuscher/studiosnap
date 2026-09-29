@@ -15,6 +15,7 @@ object Sym {
     const val ARROW_UPWARD = "\ue5d8"  // arrow_upward
     const val ASPECT_RATIO = "\ue85b"  // aspect_ratio
     const val AUTO_AWESOME = "\ue65f"  // auto_awesome
+    const val BACKGROUND_REPLACE = "\uf20a"  // background_replace
     const val BLUR_ON = "\ue3a5"  // blur_on
     const val BOLT = "\uea0b"  // bolt
     const val BRUSH = "\ue3ae"  // brush
@@ -51,6 +52,7 @@ object Sym {
     const val FLIP_CAMERA_IOS = "\uea38"  // flip_camera_ios
     const val FOLDER = "\ue2c7"  // folder
     const val FORMAT_SHAPES = "\ue25e"  // format_shapes
+    const val FRAME_PERSON = "\uf8a6"  // frame_person
     const val FULLSCREEN = "\ue5d0"  // fullscreen
     const val FULLSCREEN_EXIT = "\ue5d1"  // fullscreen_exit
     const val GIF_BOX = "\ue7a3"  // gif_box
