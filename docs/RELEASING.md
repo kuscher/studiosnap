@@ -8,7 +8,7 @@ download button points at `releases/latest/download/StudioSnap.apk`, so this nam
 SHA-256 `E1:D1:CB:07:3B:BD:58:25:4D:B0:EA:27:AA:31:E1:93:31:A8:2F:20:E1:E9:EC:01:1B:7D:04:1A:9F:79:69:7A`).
 Android only installs an update over an existing app when both are signed with the same key; a
 release signed with anything else forces everyone to uninstall first. The key lives with the
-maintainer (see CLAUDE.md); it is never committed.
+maintainer (see CLAUDE.md) and in the repo's Actions secrets; it is never committed.
 
 ## Before building
 
@@ -16,7 +16,7 @@ maintainer (see CLAUDE.md); it is never committed.
 2. Release notes are in `docs/release-notes/<version>.md` (what's new, and any new permissions,
    since Android asks for them after the update).
 
-## A. Build and publish by hand (whoever holds the key)
+## A. Build and publish by hand (fallback, whoever holds the key)
 
 With the key at `~/.config/studiosnap/keystore.jks` and its password in
 `~/.config/studiosnap/keystore.pass`, `app/build.gradle.kts` signs release builds automatically.
@@ -37,80 +37,30 @@ differently signed APK.
 
 ## B. Publish by pushing a tag (GitHub Actions)
 
-One-time setup by the key holder; afterwards anyone with write access releases by pushing a tag,
-and the key never leaves GitHub's encrypted secrets.
+This is the usual way. Anyone with write access to the repo can release. The workflow is
+`.github/workflows/release.yml`, and the key lives in the repo's Actions secrets
+`STUDIOSNAP_KEYSTORE_B64` (the keystore, base64) and `STUDIOSNAP_KEYSTORE_PASS`.
 
-1. **Add two repository secrets** (Settings > Secrets and variables > Actions > New repository
-   secret):
-   - `STUDIOSNAP_KEYSTORE_B64`: the keystore, base64-encoded: `base64 -w0 ~/.config/studiosnap/keystore.jks`
-   - `STUDIOSNAP_KEYSTORE_PASS`: the keystore password.
-2. **Protect release tags** (Settings > Rules > Rulesets > new tag ruleset for `v*`, restrict
-   creation to maintainers), so only trusted people can trigger a signed build.
-3. **Add the workflow** below as `.github/workflows/release.yml` and merge it.
-4. **To release:** bump the version and add `docs/release-notes/<version>.md` on `main`, then
-   `git tag v0.5 && git push origin v0.5`. The workflow builds, checks the certificate, and
-   publishes.
+1. On `main`: bump `versionCode` and `versionName`, and add `docs/release-notes/<version>.md`.
+2. Tag the commit and push the tag: `git tag v0.5 && git push origin v0.5`.
+3. The workflow then:
+   - checks that the notes file exists and that `versionName` matches the tag;
+   - builds and signs the APK;
+   - refuses to publish if the certificate isn't the StudioSnap key;
+   - publishes the release with `StudioSnap.apk`, `StudioSnap-<version>.apk` and its `.sha256`.
 
-Secrets aren't exposed to workflows triggered from forks, and this one only runs on tag pushes. The
-certificate check stops a release that isn't signed with the StudioSnap key.
+To test without publishing, press **Run workflow** on the Actions tab (Release). It runs the same
+signed build and certificate check, and doesn't publish.
 
-```yaml
-name: Release
+**Who can do what:**
+- **Collaborators:** anyone with write access can push a tag or run the workflow, and so could also
+  read the key through a workflow of their own. Give write access only to people you'd trust with
+  the key.
+- **Everyone else can't:** outsiders can't push tags or branches, and workflows from forks never
+  get the secrets.
+- **Third-party code:** the job that holds the key runs only GitHub's own actions, pinned to exact
+  commits, so no third-party action ever sees it.
 
-on:
-  push:
-    tags: ["v*"]
-
-permissions:
-  contents: write
-
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - uses: android-actions/setup-android@v3
-
-      - name: SDK packages
-        run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0"
-
-      - name: Signing key
-        env:
-          KEYSTORE_B64: ${{ secrets.STUDIOSNAP_KEYSTORE_B64 }}
-          KEYSTORE_PASS: ${{ secrets.STUDIOSNAP_KEYSTORE_PASS }}
-        run: |
-          mkdir -p ~/.config/studiosnap
-          echo "$KEYSTORE_B64" | base64 -d > ~/.config/studiosnap/keystore.jks
-          printf '%s' "$KEYSTORE_PASS" > ~/.config/studiosnap/keystore.pass
-
-      - name: Build
-        run: ./gradlew :app:assembleRelease --no-daemon
-
-      - name: Check the certificate
-        run: |
-          APK=app/build/outputs/apk/release/app-release.apk
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" \
-            | grep -q "SHA-256 digest: e1d1cb073bbd58254db0ea27aa31e19331a82f20e1e9ec011b7d041a9f79697a"
-
-      - name: Publish
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          cp app/build/outputs/apk/release/app-release.apk StudioSnap.apk
-          cp StudioSnap.apk "StudioSnap-$VERSION.apk"
-          gh release create "$GITHUB_REF_NAME" --title "StudioSnap $VERSION" \
-            --notes-file "docs/release-notes/$VERSION.md" StudioSnap.apk "StudioSnap-$VERSION.apk"
-
-      - name: Remove the key
-        if: always()
-        run: rm -rf ~/.config/studiosnap
-```
-
-Test the workflow once with a throwaway tag on a fork or a pre-release before relying on it.
+**Restoring the secrets** (for example, after a key restore from the Drive backup):
+- `base64 -w0 ~/.config/studiosnap/keystore.jks | gh secret set STUDIOSNAP_KEYSTORE_B64`
+- `gh secret set STUDIOSNAP_KEYSTORE_PASS < ~/.config/studiosnap/keystore.pass`
