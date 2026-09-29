@@ -27,6 +27,7 @@ import io.github.kuscher.studiosnap.capture.ElementInfo
 import io.github.kuscher.studiosnap.capture.OcrEngine
 import io.github.kuscher.studiosnap.capture.Output
 import io.github.kuscher.studiosnap.capture.WinInfo
+import io.github.kuscher.studiosnap.record.CameraBubble
 import io.github.kuscher.studiosnap.record.RecOptions
 import io.github.kuscher.studiosnap.record.RecToggle
 import io.github.kuscher.studiosnap.ui.CaptureMode
@@ -58,6 +59,7 @@ class SnapService : AccessibilityService() {
 
     private val settings by lazy { Settings(this) }
     private val recOptions by lazy { RecOptions(settings) }
+    private val bubble by lazy { CameraBubble(this, settings) }
     override fun onCreate() {
         super.onCreate()
         Log.i(TAG, "service created ${id()}")
@@ -89,6 +91,8 @@ class SnapService : AccessibilityService() {
             if (io.github.kuscher.studiosnap.record.RecordingBus.active) showRecordingControls()
             consumePendingPermission() // applies an answer that came in while we were away
             restoreBar() // then brings back a bar parked by the old object
+            // A bubble for a pending recording comes back; one left by the old object goes.
+            updateBubble()
         }
     }
 
@@ -105,6 +109,7 @@ class SnapService : AccessibilityService() {
         cardsOverlay?.destroy(); cardsOverlay = null
         textOverlay?.destroy(); textOverlay = null
         recordOverlay?.destroy(); recordOverlay = null
+        bubble.hide()
         instance = null
         return super.onUnbind(intent)
     }
@@ -304,6 +309,11 @@ class SnapService : AccessibilityService() {
             if (initialMode != null) s.changeMode(initialMode)
             val ov = captureOverlay ?: ComposeOverlay(this).also { captureOverlay = it }
             ov.show { CaptureRoot(s, dark = isNight(), barAtTop = settings.barAtTop) }
+            // A bubble that was already up (say, mid-recording) is now under the bar: lift it.
+            // A new one is added after the bar, so it's on top already.
+            val wasShown = bubble.shown
+            updateBubble()
+            if (wasShown) bubble.bringToFront()
             Log.i(TAG, "bar shown in ${SystemClock.elapsedRealtime() - t0}ms frozen=${bmp != null} source=$initialSource mode=$initialMode")
         }
         if (dry) { present(null); return }
@@ -314,7 +324,17 @@ class SnapService : AccessibilityService() {
     private fun newSession() = CaptureSession(
         this, ::listWindows, ::elementsIn, ::captureWindow, ::onResult, ::onText, ::startRecordFlow, ::startScrollFlow, ::dismissCapture,
         recOptions = recOptions.also { it.reload() }, onRecToggle = ::toggleRec,
+        onModeChange = { updateBubble() },
+        onSettings = ::openSettings,
     )
+
+    private fun openSettings() {
+        dismissCapture()
+        startActivity(
+            android.content.Intent(this, io.github.kuscher.studiosnap.SettingsActivity::class.java)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
 
     private fun onResult(bmp: Bitmap, kind: CaptureKind, label: String) {
         val name = Output.defaultName()
@@ -395,6 +415,7 @@ class SnapService : AccessibilityService() {
     private fun dismissCapture() {
         captureOverlay?.dismiss()
         session = null
+        updateBubble()
     }
 
     fun closeBar() { dismissCapture() }
@@ -448,6 +469,20 @@ class SnapService : AccessibilityService() {
 
     fun debugRecord() { startRecordFlow() }
     fun debugRecStop() { io.github.kuscher.studiosnap.record.RecordingBus.controller?.stop() }
+    /** adb-only camera bubble checks: "cam on|off", "test on|off", "corner N", "size", "shape", "cutout", "switch", "info". */
+    fun debugBubble(args: List<String>) {
+        when (args.getOrNull(0)) {
+            "cam" -> { recOptions.set(RecToggle.CAMERA, args.getOrNull(1) == "on"); updateBubble() }
+            "test" -> CameraBubble.switchTestPattern(args.getOrNull(1) != "off")
+            "corner" -> bubble.moveToCorner(args.getOrNull(1)?.toIntOrNull() ?: 3)
+            "size" -> bubble.toggleSize()
+            "shape" -> bubble.toggleShape()
+            "cutout" -> bubble.toggleCutout()
+            "switch" -> bubble.switchCamera()
+        }
+        Log.i(TAG, bubble.describe())
+    }
+
     /** adb-only: set the audio toggles without the bar ("mic", "sys", "both" or "off"). */
     fun debugRecOptions(which: String) {
         recOptions.set(RecToggle.MIC, which == "mic" || which == "both")
@@ -569,6 +604,11 @@ class SnapService : AccessibilityService() {
 
     /** Debug/visual-check: screenshots ONLY StudioSnap's own overlay window (never the user's apps). */
     fun captureOverlayShot(tag: String) {
+        // The camera bubble is an overlay too: never screenshot it while it shows a real face.
+        if (bubble.showingCamera) {
+            Log.w(TAG, "shot refused: the camera bubble is live (debug bubble test on first)")
+            return
+        }
         val overlays = ArrayList<AccessibilityWindowInfo>()
         val all = windowsOnAllDisplays
         for (i in 0 until all.size()) for (w in all.valueAt(i))
@@ -674,10 +714,12 @@ class SnapService : AccessibilityService() {
             // so the bar is also parked process-wide for whichever service object is alive then.
             parkBar()
             captureOverlay?.setHidden(true)
+            updateBubble() // the bubble steps aside with the bar
             startActivity(io.github.kuscher.studiosnap.PermissionActivity.intent(this, t))
             return
         }
         recOptions.set(t, on)
+        updateBubble()
         Log.i(TAG, "rec toggle ${t.name}=$on")
     }
 
@@ -717,11 +759,24 @@ class SnapService : AccessibilityService() {
         if (ov != null && ov.shown && ov.hidden && session != null) {
             ov.setHidden(false)
             session?.holdRecord()
+            updateBubble()
             Log.i(TAG, "bar back from behind the dialog")
         } else {
             openBar(initialSource = p.source, initialMode = p.mode, frozen = p.frozen)
             Log.i(TAG, "bar restored (${p.mode})")
         }
+    }
+
+    /**
+     * The camera bubble shows while it's wanted: the camera toggle is on and permitted, and the
+     * bar is in Record mode or a recording is starting or running.
+     */
+    private fun updateBubble() {
+        if (!alive) { bubble.hide(); return }
+        val permitted = checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val recording = recordPending || io.github.kuscher.studiosnap.record.RecordingBus.active
+        val barInRec = barShown() && session?.mode == CaptureMode.REC
+        if (recOptions.camera && permitted && (recording || barInRec)) bubble.show() else bubble.hide()
     }
 
     private fun startRecordFlow() {
@@ -765,11 +820,15 @@ class SnapService : AccessibilityService() {
             offsetY = top + h / 2 - screenH / 2,
         ).also { recordOverlay = it }
         ov.show { RecordRoot(dark = isNight()) }
+        // The pill and the bubble don't overlap, so the bubble needn't be re-added (a re-add
+        // re-binds the camera); but after a service reconnect it has to be recreated.
+        updateBubble()
     }
 
     fun onRecordingSaved(ok: Boolean, durationMs: Long, thumb: Bitmap?) {
         recordOverlay?.dismiss()
         recordPending = false
+        updateBubble()
         if (!ok) return
         val img = (thumb ?: Bitmap.createBitmap(600, 380, Bitmap.Config.ARGB_8888).also { it.eraseColor(0xFF2A2D33.toInt()) }).asImageBitmap()
         val s = durationMs / 1000

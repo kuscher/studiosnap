@@ -199,6 +199,65 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
   `SnapService.pendingPermission` and applied on reconnect, and a reconnect mid-recording
   restores the pill. `PermissionActivity` must NOT be `noHistory` (no result callbacks).
 
+## Camera bubble (2026-09-28, verified on device)
+- Record mode gets a third toggle, **camera**, which shows `record/CameraBubble`: a live CameraX
+  preview (PreviewView in COMPATIBLE/TextureView mode so the Compose clip applies) in its own small
+  accessibility overlay, so the MediaProjection recording captures it as displayed. It shows while
+  the bar is in Record mode or a recording is starting/running, and hides otherwise.
+- Drag in raw screen coordinates; release snaps (animated) to the nearest corner. Hover or tap
+  shows controls: size (160/256 dp), shape (circle/rounded square), switch camera (only with 2+
+  cameras). Size/shape/corner/camera id persist in `Settings`. Default: bottom-right, front camera.
+- No camera FGS: the accessibility binding gives the process the camera capability
+  (`dumpsys activity processes` → `curCapability=LCMN-U-TI`). The camera binds to the overlay's
+  lifecycle, so it only runs while the bubble is visible.
+- Z-order: a11y overlays stack in add order, so the bubble is re-added after the bar when it
+  was already up (`bringToFront`). The pill is pill-sized now, so it doesn't need that.
+- With the camera on, `RecordActivity` asks for an entire-screen recording
+  (`MediaProjectionConfig.createConfigForDefaultDisplay()`): a "single app" recording would leave
+  the bubble out.
+- Known limit: the camera list is read when the camera binds, so a webcam plugged in while the
+  bubble is up gets its switch button the next time the bubble shows.
+- CameraX 1.6.2 adds ~2 MB to the release APK (29.2 MB).
+- Verified on the Acer (x86_64, one front camera): permission via the real dialog; live camera
+  from logs only (`bubble camera 0 facing=0`, `STREAMING`, `dumpsys media.camera` open by us)
+  with NO foreground service running; camera closed when the bar closes; tap shows controls;
+  size and shape toggles; drag snaps to top-left and back; a recording with the test pattern
+  has the gradient at the bubble's position (`debug recpixel`); with the camera on, the
+  consent dialog offers only "Share entire screen"; accepting it after the service is recreated
+  brings back the bubble and the pill.
+- Android recreates the accessibility service (a NEW object) around the permission and consent
+  dialogs. State that must survive (test pattern, pending permission answers) is process-wide;
+  a running recording is restored in `onServiceConnected`.
+- `debug shot` refuses to run while the bubble shows the real camera: `debug bubble test on`
+  first. Never screenshot a live bubble.
+
+## Camera bubble: cut-out, free placement, Settings button (2026-09-28, verified on device)
+- **Cut-out** ("Remove background" on the bubble, `Settings.bubbleCutout`): `record/Cutout.kt` runs
+  Google's selfie segmentation model (`assets/models/selfie_segmenter.tflite`, MediaPipe, square
+  256x256, Apache 2.0; RGB in [0, 1] -> one person-probability channel) on LiteRT 1.4.2 on the CPU.
+  The camera binds ImageAnalysis (1280x960, RGBA) instead of the Preview in this mode; frames are
+  rotated, mirrored and center-cropped to a square. The model runs on its own thread on the newest
+  frame; each camera frame is drawn with the latest mask (DST_IN, bilinear upscale) into a private
+  buffer and handed to the UI as an immutable copy (<= 512 px; one pending frame at most), so the UI
+  never draws a half-rewritten frame. Memory is a GC sawtooth (~145-200 MB), no growth. Acer: 29.5 fps
+  video and mask, ~10 ms per run, memory flat over a minute. Recorded transparency checked with
+  `debug recpixel` (bubble corners match the screen behind them).
+- Tried and dropped (all on the Acer): the landscape model (256x144 mask, coarse edges), ML Kit's
+  selfie segmenter (no better; 71 MB APK vs 40 MB), the multi-class model (better edges, ~117 ms a
+  run, so the mask trailed a moving person as a dark shadow), LiteRT's GPU delegate (OpenCL is clvk
+  on this Googlebook: 18 s+ compile, then a crash; OpenGL via ANGLE won't initialize). LiteRT 2.x
+  fails AGP 9's namespace check and adds FOREGROUND_SERVICE_DATA_SYNC.
+- Compose makes a new AndroidView during composition, before the old branch's DisposableEffect
+  cleanup runs: when the cut-out switches off, the cleanup must rebind (not just unbind) or the
+  preview is left without a camera.
+- **Free placement**: a dropped bubble stays where it's left (clamped on screen); within 64 dp of a
+  corner spot (the nearest of all four; they aren't symmetric) it snaps into the corner. Clamping
+  centers the bubble on an axis where it can't fit (tiny displays) instead of throwing. `Settings.bubbleCorner` is -1 when free, with the center in
+  `bubbleFreeX` / `bubbleFreeY` (fractions of the screen).
+- **Settings button**: the bar's Options (tune) button closes the bar and opens Settings.
+- Known limits: the bubble window is a square, so its see-through part still takes clicks; the
+  camera list is read when the camera binds (a hot-plugged webcam shows up next time).
+
 ## Next — republish release w/ these fixes when user OKs; polish (scroll progress HUD, home desktop layout) + 4b recording (paused).
 Remaining Phase 1 work:
 1. Capture engine: `takeScreenshot` (full/area-crop) and `takeScreenshotOfWindow`; ~333 ms limit.

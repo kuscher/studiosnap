@@ -102,6 +102,17 @@ class ComposeOverlay(
         runCatching { wm.updateViewLayout(v, params) }
     }
 
+    /** Moves a shown window (offsets from center, see [offsetX]) without recreating its UI. */
+    fun moveTo(x: Int, y: Int) {
+        params.x = x; params.y = y
+        view?.let { runCatching { wm.updateViewLayout(it, params) } }
+    }
+
+    fun resize(width: Int, height: Int) {
+        params.width = width; params.height = height
+        view?.let { runCatching { wm.updateViewLayout(it, params) } }
+    }
+
     fun dismiss() {
         if (hidden) setHidden(false)
         val v = view ?: return

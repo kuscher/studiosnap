@@ -110,6 +110,33 @@ object RecProbe {
         Log.i(SnapService.TAG, "recinfo audio ${n * 1000 / rate}ms rms=${"%.0f".format(rms)} peak=$peak loud=${loud * 1000 / rate}ms approxHz=${"%.0f".format(hz)}")
     }
 
+    /**
+     * Logs the mean color of a small patch (display px) in the newest recording's frame at 1 s.
+     * Checks that an overlay (the camera bubble's test pattern) made it into the video, without
+     * the frame ever leaving the device.
+     */
+    fun patchColor(ctx: Context, x: Int, y: Int, size: Int = 24) {
+        val uri = latestVideo(ctx) ?: run { Log.w(SnapService.TAG, "recpixel: no video"); return }
+        val r = android.media.MediaMetadataRetriever()
+        try {
+            r.setDataSource(ctx, uri)
+            val f = r.getFrameAtTime(1_000_000) ?: run { Log.w(SnapService.TAG, "recpixel: no frame"); return }
+            var rs = 0L; var gs = 0L; var bs = 0L; var n = 0
+            for (py in (y - size / 2).coerceAtLeast(0) until (y + size / 2).coerceAtMost(f.height)) {
+                for (px in (x - size / 2).coerceAtLeast(0) until (x + size / 2).coerceAtMost(f.width)) {
+                    val c = f.getPixel(px, py)
+                    rs += (c shr 16) and 0xFF; gs += (c shr 8) and 0xFF; bs += c and 0xFF; n++
+                }
+            }
+            f.recycle()
+            if (n > 0) Log.i(SnapService.TAG, "recpixel ($x,$y) mean rgb=(${rs / n},${gs / n},${bs / n})")
+        } catch (e: Exception) {
+            Log.w(SnapService.TAG, "recpixel failed: $e")
+        } finally {
+            r.release()
+        }
+    }
+
     /** Plays a sine tone as media for [seconds], so system-audio capture has something to hear. */
     fun tone(seconds: Int, hz: Int) {
         Thread {
