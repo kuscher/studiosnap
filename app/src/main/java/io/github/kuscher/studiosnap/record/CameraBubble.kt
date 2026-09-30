@@ -35,7 +35,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -67,12 +69,14 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.hypot
+import kotlinx.coroutines.delay
 
 /**
  * The floating camera bubble, like ChromeOS's: a live camera preview in a small accessibility
  * overlay window that sits above everything, so a screen recording captures it exactly as you see
  * it. Drag it anywhere: dropped near a corner it snaps into it, otherwise it stays where it was
- * left (kept on screen). Hover (or tap) for size, shape and switch-camera controls. Size, shape,
+ * left (kept on screen). Hover (or tap) for size, shape and switch-camera controls; while
+ * recording, only a click brings them up, so they don't end up in the video. Size, shape,
  * position and camera persist in [Settings].
  *
  * Cut-out mode removes the background ([Cutout], on-device segmentation): no frame, only the
@@ -463,6 +467,16 @@ class CameraBubble(private val ctx: Context, private val settings: Settings) {
 private fun BubbleContent(b: CameraBubble) {
     var hovered by remember { mutableStateOf(false) }
     var tapped by remember { mutableStateOf(false) }
+    // The bubble is burned into the recording, so while recording the controls answer a click
+    // only (a pointer passing over the bubble shouldn't paint them into the video), and fold away
+    // on their own after a few seconds without a click.
+    val recording = RecordingBus.active
+    var clicks by remember { mutableIntStateOf(0) }
+    LaunchedEffect(recording) { if (recording) tapped = false }
+    LaunchedEffect(tapped, recording, clicks) {
+        if (tapped && recording) { delay(CONTROLS_HIDE_MS); tapped = false }
+    }
+    val showControls = tapped || (hovered && !recording)
     val shape = if (b.square) RoundedCornerShape(22) else CircleShape
     Box(
         Modifier
@@ -512,11 +526,11 @@ private fun BubbleContent(b: CameraBubble) {
         Box(Modifier.fillMaxSize().pointerInteropFilter { ev -> b.onTouch(ev) { tapped = !tapped } })
         if (!b.cutout) {
             Box(Modifier.fillMaxSize().border(2.dp, Color.White.copy(alpha = 0.85f), shape))
-        } else if (hovered || tapped) {
+        } else if (showControls) {
             // No frame in cut-out mode, so show where the draggable area is while it's in use.
             Box(Modifier.fillMaxSize().border(1.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(12.dp)))
         }
-        if (hovered || tapped) {
+        if (showControls) {
             Row(
                 Modifier
                     .align(Alignment.BottomCenter)
@@ -525,14 +539,17 @@ private fun BubbleContent(b: CameraBubble) {
                     .padding(3.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                BubbleButton(if (b.large) Sym.CLOSE_FULLSCREEN else Sym.OPEN_IN_FULL, if (b.large) "Smaller" else "Larger") { b.toggleSize() }
-                if (!b.cutout) BubbleButton(if (b.square) Sym.CIRCLE else Sym.SQUARE, if (b.square) "Circle" else "Rounded square") { b.toggleShape() }
-                BubbleButton(if (b.cutout) Sym.FRAME_PERSON else Sym.BACKGROUND_REPLACE, if (b.cutout) "Show background" else "Remove background") { b.toggleCutout() }
-                if (b.cameraCount > 1) BubbleButton(Sym.CAMERASWITCH, "Switch camera") { b.switchCamera() }
+                BubbleButton(if (b.large) Sym.CLOSE_FULLSCREEN else Sym.OPEN_IN_FULL, if (b.large) "Smaller" else "Larger") { clicks++; b.toggleSize() }
+                if (!b.cutout) BubbleButton(if (b.square) Sym.CIRCLE else Sym.SQUARE, if (b.square) "Circle" else "Rounded square") { clicks++; b.toggleShape() }
+                BubbleButton(if (b.cutout) Sym.FRAME_PERSON else Sym.BACKGROUND_REPLACE, if (b.cutout) "Show background" else "Remove background") { clicks++; b.toggleCutout() }
+                if (b.cameraCount > 1) BubbleButton(Sym.CAMERASWITCH, "Switch camera") { clicks++; b.switchCamera() }
             }
         }
     }
 }
+
+/** How long the bubble's controls stay up during a recording after the last click. */
+private const val CONTROLS_HIDE_MS = 3000L
 
 @Composable
 private fun BubbleButton(glyph: String, label: String, onClick: () -> Unit) {
