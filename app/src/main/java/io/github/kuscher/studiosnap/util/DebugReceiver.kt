@@ -19,6 +19,7 @@ class DebugReceiver : BroadcastReceiver() {
         Log.i(SnapService.TAG, "DEBUG ${args.joinToString(" ")} service=${svc != null}")
         when (args.getOrNull(0)) {
             "ping" -> {}
+            "notice" -> svc?.notice(args.drop(1).joinToString(" ").ifBlank { "Test notice" })
             "open" -> svc?.openBar(sourceOf(args.getOrNull(1)))
             "opendry" -> svc?.openBar(sourceOf(args.getOrNull(1)), dry = true)
             "close" -> svc?.closeBar()

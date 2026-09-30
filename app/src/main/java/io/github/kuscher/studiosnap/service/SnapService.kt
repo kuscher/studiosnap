@@ -30,10 +30,14 @@ import io.github.kuscher.studiosnap.capture.WinInfo
 import io.github.kuscher.studiosnap.record.CameraBubble
 import io.github.kuscher.studiosnap.record.RecOptions
 import io.github.kuscher.studiosnap.record.RecToggle
+import io.github.kuscher.studiosnap.ui.BAR_BOTTOM_GAP_DP
+import io.github.kuscher.studiosnap.ui.BAR_HEIGHT_DP
+import io.github.kuscher.studiosnap.ui.BAR_TOP_GAP_DP
 import io.github.kuscher.studiosnap.ui.CaptureMode
 import io.github.kuscher.studiosnap.ui.CaptureRoot
 import io.github.kuscher.studiosnap.ui.CardData
 import io.github.kuscher.studiosnap.ui.CardStack
+import io.github.kuscher.studiosnap.ui.NoticeRoot
 import io.github.kuscher.studiosnap.ui.RecordRoot
 import io.github.kuscher.studiosnap.ui.TextRoot
 import io.github.kuscher.studiosnap.ui.Source
@@ -53,6 +57,10 @@ class SnapService : AccessibilityService() {
     private var cardsOverlay: ComposeOverlay? = null
     private var textOverlay: ComposeOverlay? = null
     private var recordOverlay: ComposeOverlay? = null
+    private var noticeOverlay: ComposeOverlay? = null
+    private val hideNotice = Runnable { noticeOverlay?.dismiss() }
+    /** The bar's frozen screenshot is being taken (retries included): a message now would be in it. */
+    private var freezing = false
     private var session: CaptureSession? = null
     private val cards = mutableStateListOf<CardData>()
     private var cardId = 0L
@@ -93,6 +101,11 @@ class SnapService : AccessibilityService() {
             restoreBar() // then brings back a bar parked by the old object
             // A bubble for a pending recording comes back; one left by the old object goes.
             updateBubble()
+            // A recorder message that came while no service object could show it.
+            pendingNotice?.let { (text, at) ->
+                pendingNotice = null
+                if (SystemClock.uptimeMillis() - at < PENDING_NOTICE_TTL_MS) notice(text, long = true)
+            }
         }
     }
 
@@ -109,6 +122,8 @@ class SnapService : AccessibilityService() {
         cardsOverlay?.destroy(); cardsOverlay = null
         textOverlay?.destroy(); textOverlay = null
         recordOverlay?.destroy(); recordOverlay = null
+        main.removeCallbacks(hideNotice)
+        noticeOverlay?.destroy(); noticeOverlay = null
         bubble.hide()
         instance = null
         return super.onUnbind(intent)
@@ -307,6 +322,9 @@ class SnapService : AccessibilityService() {
             dismissCapture()
         }
         if (captureOverlay?.shown == true) return
+        // A message still up would be in the frozen screenshot the bar opens with.
+        main.removeCallbacks(hideNotice)
+        noticeOverlay?.dismiss()
         val t0 = SystemClock.elapsedRealtime()
         val present = present@{ bmp: Bitmap? ->
             if (!alive) return@present // unbound while the screenshot was in flight
@@ -325,7 +343,8 @@ class SnapService : AccessibilityService() {
         }
         if (dry) { present(null); return }
         if (frozen != null) { present(frozen); return } // a restored bar keeps its frozen screen
-        captureFullScreen(1) { bmp -> present(bmp) }
+        freezing = true
+        captureFullScreen(1) { bmp -> freezing = false; present(bmp) }
     }
 
     private fun newSession() = CaptureSession(
@@ -407,6 +426,51 @@ class SnapService : AccessibilityService() {
                 onEdit = { openStudio(it) },
             )
         }
+    }
+
+    /**
+     * A short message above the taskbar, in its own untouchable window: what a toast would say.
+     * Android drops a background app's toasts while its notifications are off (logged as
+     * "Suppressing toast … by user request"), and this service is always in the background, so a
+     * toast from here can silently vanish. False when there's no live service object to show it.
+     */
+    fun notice(text: String, long: Boolean = false): Boolean {
+        if (!alive) return false
+        if (freezing) { main.postDelayed({ if (!notice(text, long)) parkNotice(text) }, NOTICE_FREEZE_WAIT_MS); return true }
+        Log.i(TAG, "notice: $text")
+        val density = resources.displayMetrics.density
+        val metrics = getSystemService(WindowManager::class.java).maximumWindowMetrics
+        val screenH = metrics.bounds.height()
+        val insets = metrics.windowInsets.getInsetsIgnoringVisibility(android.view.WindowInsets.Type.systemBars())
+        val h = (NOTICE_HEIGHT_DP * density).toInt()
+        // Next to the bar while it's open, where the click that caused the message just was:
+        // above it when it floats over the taskbar, below it when it's docked at the top. With no
+        // bar, above the taskbar. (The bar's overlay is full screen, so its gaps are from the edges.)
+        val barEdge = ((if (settings.barAtTop) BAR_TOP_GAP_DP else BAR_BOTTOM_GAP_DP) + BAR_HEIGHT_DP + NOTICE_GAP_DP) * density
+        val y = when {
+            barShown() && settings.barAtTop -> barEdge.toInt() + h / 2 - screenH / 2
+            barShown() -> screenH / 2 - barEdge.toInt() - h / 2
+            else -> {
+                // The reported inset underreports the taskbar, so keep a floor under it.
+                val bottom = maxOf(insets.bottom, (NOTICE_TASKBAR_FLOOR_DP * density).toInt())
+                screenH / 2 - bottom - h / 2
+            }
+        }
+        // Full width (it takes no clicks), centered, so the pill in it can size to its text.
+        val ov = noticeOverlay ?: ComposeOverlay(
+            this,
+            heightSpec = h,
+            gravity = Gravity.CENTER,
+            noLimits = false,
+            touchable = false,
+        ).also { noticeOverlay = it }
+        // Re-added each time, so it sits above whatever window came up since (the bar, say).
+        ov.dismiss()
+        ov.moveTo(0, y)
+        ov.show { NoticeRoot(text, dark = isNight()) }
+        main.removeCallbacks(hideNotice)
+        main.postDelayed(hideNotice, if (long) NOTICE_LONG_MS else NOTICE_SHORT_MS)
+        return true
     }
 
     private fun removeCard(id: Long) {
@@ -716,7 +780,7 @@ class SnapService : AccessibilityService() {
         if (t != RecToggle.CAMERA && (recordPending || io.github.kuscher.studiosnap.record.RecordingBus.active)) {
             // The audio sources are fixed when a recording starts: a toggle flipped now would show
             // the mic as off while it's still being recorded. (The camera bubble does act live.)
-            android.widget.Toast.makeText(this, "Stop the recording to change the mic or system audio.", android.widget.Toast.LENGTH_SHORT).show()
+            notice("Stop the recording to change the mic or system audio.")
             return
         }
         val on = !recOptions.isOn(t)
@@ -747,10 +811,9 @@ class SnapService : AccessibilityService() {
     private fun onPermissionResult(t: RecToggle, granted: Boolean) {
         Log.i(TAG, "permission for ${t.name}: granted=$granted")
         recOptions.reload()  // PermissionActivity already saved the toggle on a grant
-        if (!granted) {
-            android.widget.Toast.makeText(this, "${t.label} is off. Allow it for StudioSnap in App info › Permissions.", android.widget.Toast.LENGTH_LONG).show()
-        }
+        // The bar first: a message shown before it could end up under a bar re-added on top.
         restoreBar()
+        if (!granted) notice("${t.label} is off. Allow it for StudioSnap in App info › Permissions.", long = true)
     }
 
     /** Remembers the open bar (frozen screen, mode, source) so it can come back as it was. */
@@ -800,8 +863,8 @@ class SnapService : AccessibilityService() {
         if (recordPending || io.github.kuscher.studiosnap.record.RecordService.instance != null) {
             // One recording at a time: a second start would replace the running session.
             Log.i(TAG, "record ignored: a recording is already starting, running or saving")
-            android.widget.Toast.makeText(this, "Already recording", android.widget.Toast.LENGTH_SHORT).show()
             dismissCapture()
+            notice("Already recording")
             return
         }
         recordPending = true
@@ -858,6 +921,20 @@ class SnapService : AccessibilityService() {
         const val TAG = "StudioSnap"
         private const val PILL_HEIGHT_DP = 52
         private const val PILL_TOP_DP = 24
+        private const val NOTICE_HEIGHT_DP = 56
+        private const val NOTICE_TASKBAR_FLOOR_DP = 72
+        /** Space between the bar and a message next to it (dp). */
+        private const val NOTICE_GAP_DP = 4
+        private const val NOTICE_SHORT_MS = 2500L
+        private const val NOTICE_LONG_MS = 4000L
+        private const val NOTICE_FREEZE_WAIT_MS = 100L
+        private const val PENDING_NOTICE_TTL_MS = 10_000L
+
+        /** A message for the next service object to show (Android recreates this service around dialogs). */
+        @Volatile var pendingNotice: Pair<String, Long>? = null
+            private set
+
+        fun parkNotice(text: String) { pendingNotice = text to SystemClock.uptimeMillis() }
         @Volatile var instance: SnapService? = null
             private set
         /**
