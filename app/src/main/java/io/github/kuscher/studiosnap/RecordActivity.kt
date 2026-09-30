@@ -16,26 +16,35 @@ import io.github.kuscher.studiosnap.util.Settings
  * Transparent trampoline that asks for MediaProjection consent (Android shows its picker once per
  * session, or approves instantly when the PROJECT_MEDIA app-op is granted), then hands the token
  * to [RecordService]. When an audio toggle is on but the microphone permission is missing (say it
- * was revoked in Settings), it asks for that first; a refusal just records without sound.
+ * was revoked in Settings), it asks for that first; a refusal just records without sound. Before
+ * the first recording it also asks, once, for notifications: without them Android hides the
+ * recording notification and its Stop action (the service still shows under Active apps).
  */
 class RecordActivity : Activity() {
     private val request = 41
-    private val audioRequest = 43
+    private val permsRequest = 43
     private var answered = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val s = Settings(this)
-        val needsAudio = (s.recMic || s.recSystemAudio) &&
-            checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
-        if (needsAudio) requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), audioRequest)
+        val perms = buildList {
+            if ((s.recMic || s.recSystemAudio) && !granted(Manifest.permission.RECORD_AUDIO)) add(Manifest.permission.RECORD_AUDIO)
+            if (!s.askedNotifications && !granted(Manifest.permission.POST_NOTIFICATIONS)) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+                s.askedNotifications = true
+            }
+        }
+        if (perms.isNotEmpty()) requestPermissions(perms.toTypedArray(), permsRequest)
         else askConsent()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == audioRequest) askConsent()
+        if (requestCode == permsRequest) askConsent()
     }
+
+    private fun granted(permission: String) = checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
 
     private fun askConsent() {
         val pm = getSystemService(MediaProjectionManager::class.java)
