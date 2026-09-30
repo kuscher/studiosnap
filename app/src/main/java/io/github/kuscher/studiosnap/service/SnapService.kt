@@ -905,6 +905,9 @@ class SnapService : AccessibilityService() {
         updateBubble()
     }
 
+    /** Stop was pressed: the bubble goes now (the camera closes), while the file is still saving. */
+    fun onRecordingStopping() = updateBubble()
+
     fun onRecordingSaved(ok: Boolean, durationMs: Long, thumb: Bitmap?) {
         recordOverlay?.dismiss()
         recordPending = false
