@@ -313,7 +313,8 @@ class SnapService : AccessibilityService() {
             val s = newSession()
             session = s
             s.onFrozen(bmp, initialSource)
-            if (initialMode != null) s.changeMode(initialMode)
+            // Opened during a recording, the bar starts in Video mode: its Record button is Stop then.
+            (initialMode ?: if (io.github.kuscher.studiosnap.record.RecordingBus.active) CaptureMode.REC else null)?.let { s.changeMode(it) }
             val ov = captureOverlay ?: ComposeOverlay(this).also { captureOverlay = it }
             ov.show { CaptureRoot(s, dark = isNight(), barAtTop = settings.barAtTop) }
             // A bubble that was already up (say, mid-recording) is now under the bar: lift it.
