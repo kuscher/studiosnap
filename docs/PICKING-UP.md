@@ -230,6 +230,14 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
 - `debug shot` refuses to run while the bubble shows the real camera: `debug bubble test on`
   first. Never screenshot a live bubble.
 
+## Bubble controls stay out of recordings (branch bubble-controls-click)
+- Before, the bubble's controls came up on hover, so a pointer passing over the bubble painted
+  them into the video. Now, while `RecordingBus.active`, hover does nothing: a click brings the
+  controls up, and they fold away 3 s after the last click on the bubble or its controls
+  (`CONTROLS_HIDE_MS`; a click counter restarts the timer, Switch camera included). They
+  also fold away when a recording starts. Hover still works before recording, for framing.
+- Cut-out mode's hover outline follows the same rule, since it would be recorded too.
+
 ## Camera bubble: cut-out, free placement, Settings button (2026-09-28, verified on device)
 - **Cut-out** ("Remove background" on the bubble, `Settings.bubbleCutout`): `record/Cutout.kt` runs
   Google's selfie segmentation model (`assets/models/selfie_segmenter.tflite`, MediaPipe, square
