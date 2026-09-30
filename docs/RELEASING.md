@@ -5,7 +5,7 @@ download button points at `releases/latest/download/StudioSnap.apk`, so this nam
 `StudioSnap-<version>.apk`.
 
 **Every release must be signed with the StudioSnap release key** (alias `studiosnap`, certificate
-SHA-256 `E1:D1:CB:07:3B:BD:58:25:4D:B0:EA:27:AA:31:E1:93:31:A8:2F:20:E1:E9:EC:01:1B:7D:04:1A:9F:79:69:7A`).
+SHA-256 `3A:D1:42:18:66:04:86:BC:D4:88:8E:24:D1:C3:4F:16:84:A2:43:B7:89:6F:6A:BD:6C:72:87:93:F2:F4:57:0F`).
 Android only installs an update over an existing app when both are signed with the same key; a
 release signed with anything else forces everyone to uninstall first. The key lives with the
 maintainer (see CLAUDE.md) and in the repo's Actions secrets; it is never committed.
@@ -25,7 +25,7 @@ With the key at `~/.config/studiosnap/keystore.jks` and its password in
 git checkout main && git pull
 ./gradlew :app:assembleRelease
 APK=app/build/outputs/apk/release/app-release.apk
-apksigner verify --print-certs "$APK" | grep SHA-256    # must be E1:D1:CB:07:...:69:7A
+apksigner verify --print-certs "$APK" | grep SHA-256    # must be 3A:D1:42:18:...:57:0F
 cp "$APK" /tmp/StudioSnap.apk && cp "$APK" /tmp/StudioSnap-0.4.apk
 gh release create v0.4 --target main --title "StudioSnap 0.4" --notes-file docs/release-notes/0.4.md \
   /tmp/StudioSnap.apk /tmp/StudioSnap-0.4.apk

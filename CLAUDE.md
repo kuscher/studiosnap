@@ -12,10 +12,10 @@ SDK 37), native Kotlin + Jetpack Compose, MIT. The floating **capture bar** is t
   `StudioSnap-<version>.apk`); `main` may be ahead of the latest tag. How to cut one (by hand, or by
   pushing a `v*` tag, which runs `.github/workflows/release.yml`): `docs/RELEASING.md`; notes in `docs/release-notes/`.
 - **Release signing key:** `~/.config/studiosnap/keystore.jks` (+ `keystore.pass`), git-ignored.
-  Alias `studiosnap`, cert SHA-256 `E1:D1:CB:07:3B:BD:58:25:4D:B0:EA:27:AA:31:E1:93:31:A8:2F:20:E1:E9:EC:01:1B:7D:04:1A:9F:79:69:7A`.
-  Backed up to the user's a private folder (the keystore base64 +
-  a README with restore steps). The keystore **password is intentionally NOT in the backup or git** — it
-  is in the user's password manager (and on the VM at `~/.config/studiosnap/keystore.pass`). Every
+  Alias `studiosnap`, cert SHA-256 `3A:D1:42:18:66:04:86:BC:D4:88:8E:24:D1:C3:4F:16:84:A2:43:B7:89:6F:6A:BD:6C:72:87:93:F2:F4:57:0F`.
+  A new key since 2026-09-30 (also Google Play's; GitHub installs of 0.4 and earlier must be uninstalled once).
+  Backed up with its password to the user's a private folder (a README has the restore
+  steps); never in git. The release workflow reads it from the secrets `STUDIOSNAP_KEYSTORE_B64` and `STUDIOSNAP_KEYSTORE_PASS`. Every
   future release MUST be signed with this exact key or users can't update without uninstalling.
   The keystore and its password are also the repo's Actions secrets `STUDIOSNAP_KEYSTORE_B64` /
   `STUDIOSNAP_KEYSTORE_PASS`, used only by the tag-triggered release workflow.

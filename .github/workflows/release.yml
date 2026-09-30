@@ -59,7 +59,7 @@ jobs:
         run: |
           APK=app/build/outputs/apk/release/app-release.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" \
-            | grep -q "SHA-256 digest: e1d1cb073bbd58254db0ea27aa31e19331a82f20e1e9ec011b7d041a9f79697a" \
+            | grep -q "SHA-256 digest: 3ad14218660486bcd4888e24d1c34f1684a243b7896f6abd6c728793f2f4570f" \
             || { echo "::error::the APK isn't signed with the StudioSnap release key"; exit 1; }
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$APK" | head -1
           sha256sum "$APK"
