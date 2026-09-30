@@ -1,0 +1,25 @@
+StudioSnap is a capture studio for Android laptops. Press one key and grab an area, a window, a part of an app, the whole screen or a scrolling page. It's copied, saved and ready to annotate the moment you let go, and nothing leaves your device.
+
+Capture anything
+Area, Sections (click a part of an app), Window, Screen, Scroll (a whole page, in beta) and Text. A live loupe and colour picker help you pick the exact pixel.
+
+Instant
+Press the Screenshot key, or Action + Shift + S, anywhere. The shot lands on the clipboard and in your gallery, with a card in the corner to copy it again or edit it.
+
+Mark it up
+Arrows, shapes, pen, highlighter, text, numbered steps, blur and redaction, and crop. Frames add a background, padding and rounded corners in one click.
+
+Grab the text
+Copy selectable text out of any window, or read text straight out of images, PDFs and canvas apps with text recognition that runs on your device.
+
+Record
+Save a screen recording as an MP4, with your voice from the microphone and the sound your apps play, and a floating camera bubble of you if you want one. Remove background leaves just you over the screen.
+
+Why StudioSnap uses an accessibility service
+StudioSnap's accessibility service notices the capture key, and reads the screen when you capture so it can find windows, parts of apps and selectable text. It doesn't record or store what you type, your mouse or your touches. You turn it on yourself in the one-time setup.
+
+Private
+No internet permission, no accounts, no ads, no analytics. Screenshots, recordings and recognised text stay on your device. The microphone and camera are used only while you record with them turned on, with Android's indicators showing.
+
+Free and open source
+StudioSnap is a personal hobby project by Alexander Kuscher, not affiliated with or endorsed by any employer. The code is MIT-licensed: github.com/kuscher/studiosnap
