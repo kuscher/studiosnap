@@ -82,6 +82,11 @@ class Settings(ctx: Context) {
         get() = p.getString(BUBBLE_CAMERA, null)
         set(v) = p.edit().putString(BUBBLE_CAMERA, v).apply()
 
+    /** Set once StudioSnap has asked for notifications (before the first recording), so it asks only once. */
+    var askedNotifications: Boolean
+        get() = p.getBoolean(ASKED_NOTIFY, false)
+        set(v) = p.edit().putBoolean(ASKED_NOTIFY, v).apply()
+
     /** Set once the user finishes (or skips) the first-run onboarding. */
     var onboardingDone: Boolean
         get() = p.getBoolean(ONBOARDED, false)
@@ -94,6 +99,7 @@ class Settings(ctx: Context) {
         private const val CARD = "showCard"
         private const val BAR_TOP = "barAtTop"
         private const val ONBOARDED = "onboardingDone"
+        private const val ASKED_NOTIFY = "askedNotifications"
         private const val REC_MIC = "recMic"
         private const val REC_SYSTEM = "recSystemAudio"
         private const val REC_CAMERA = "recCamera"

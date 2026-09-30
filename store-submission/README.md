@@ -31,7 +31,7 @@ made with `scripts/play/graphics.mjs` in kuscher/googlebook-tech.
    `~/.config/studiosnap/keystore.jks` (also in the repo secrets) with Google's PEPK tool, so the Play build and the APKs on GitHub have the same signature and people can
    move between them without uninstalling. The same key is the upload key.
 2. **Build the bundle** (Play only takes .aab files): `./gradlew :app:bundleRelease` → `app/build/outputs/bundle/release/app-release.aab`, signed with `~/.config/studiosnap/keystore.jks`. The release workflow (`.github/workflows/release.yml`) only builds the APK; the AAB is built where the key is (it's also in the repo secrets `STUDIOSNAP_KEYSTORE_B64` / `_PASS`). Each upload needs a higher version code than the last
-   (`versionCode` in `app/build.gradle.kts` (4 for 0.4)).
+   (`versionCode` in `app/build.gradle.kts` (5 for 0.4.1)).
 3. **Closed test first.** The developer account is a personal one: before production, a closed test with at least 12
    testers opted in for 14 days in a row.
 4. **Store listing, store settings and App content:** filled in from these files on 30 September 2026.

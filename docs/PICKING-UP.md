@@ -257,6 +257,17 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
 - Known limits: the bubble window is a square, so its see-through part still takes clicks; the
   camera list is read when the camera binds (a hot-plugged webcam shows up next time).
 
+## 0.4.1 for Google Play (2026-09-30)
+- Play's Accessibility API policy wants a prominent in-app disclosure before consent. The onboarding
+  setup card (`OnboardingScreen.EnableCard`) now lists each use (keys checked only for the shortcut,
+  the screenshot, window/element positions, text for Text, scrolling for Scroll capture), says nothing
+  leaves the device, and its button is **Agree and turn on** ("Not now" skips). The home screen's
+  Turn on goes back to that screen (never straight to Settings). `a11y_description` says the same.
+- The recording notification (with Stop) was hidden on fresh installs: StudioSnap never asked for
+  POST_NOTIFICATIONS. `RecordActivity` now asks once (`Settings.askedNotifications`) before the first
+  recording, together with the mic permission when that's needed.
+- Play declaration videos: kuscher/googlebook-tech `scripts/play/videos` (flows for this app's taps).
+
 ## 0.4 release review fixes (2026-09-29)
 - A bar hidden for a permission dialog could stay hidden for good (dialog up > 60 s then denied,
   or closed without an answer): `openBar` then saw a shown bar and did nothing, while the

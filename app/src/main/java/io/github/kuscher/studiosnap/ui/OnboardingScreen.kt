@@ -147,11 +147,22 @@ private fun EnableCard(onEnable: () -> Unit, onSkip: () -> Unit) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 SymText(Sym.BOLT, size = 22, filled = true, color = scheme.primary)
-                Text("One-time setup", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = scheme.onSurface)
+                Text("One-time setup: the accessibility service", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = scheme.onSurface)
+            }
+            // Google Play's prominent disclosure: what the service accesses and what StudioSnap does
+            // with it, shown before the user agrees. Keep it in step with a11y_description.
+            Text(
+                "StudioSnap captures your screen through Android's accessibility service. With it on, StudioSnap:",
+                fontSize = 13.sp, color = scheme.onSurfaceVariant,
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Bullet("checks each key press only for the Screenshot key or Action + Shift + S; other keys pass straight through and are never recorded")
+                Bullet("takes a screenshot of the screen when you press that key or use the capture bar")
+                Bullet("while you capture, reads where windows and on-screen elements are so a selection can snap to them, reads their text when you pick Text, and scrolls a window for Scroll capture")
             }
             Text(
-                "StudioSnap watches for the Screenshot key and grabs the screen through Android's " +
-                    "accessibility service. Turn it on to capture with a single keypress.",
+                "Everything stays on your Googlebook: StudioSnap has no internet permission and doesn't collect or " +
+                    "share anything. You can turn the service off in Settings › Accessibility at any time.",
                 fontSize = 13.sp, color = scheme.onSurfaceVariant,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
@@ -162,9 +173,9 @@ private fun EnableCard(onEnable: () -> Unit, onSkip: () -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Button(onClick = onEnable) {
                     SymText(Sym.BOLT, size = 18, filled = true, color = scheme.onPrimary)
-                    Text("  Turn on StudioSnap")
+                    Text("  Agree and turn on")
                 }
-                TextButton(onClick = onSkip) { Text("Skip for now", color = scheme.onSurfaceVariant) }
+                TextButton(onClick = onSkip) { Text("Not now", color = scheme.onSurfaceVariant) }
             }
         }
     }
@@ -186,6 +197,15 @@ private fun ReadyCard(onStart: () -> Unit) {
             }
             Button(onClick = onStart) { Text("Start capturing") }
         }
+    }
+}
+
+@Composable
+private fun Bullet(text: String) {
+    val scheme = MaterialTheme.colorScheme
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("•", fontSize = 13.sp, color = scheme.onSurfaceVariant)
+        Text(text, fontSize = 13.sp, color = scheme.onSurfaceVariant)
     }
 }
 

@@ -123,7 +123,8 @@ class MainActivity : ComponentActivity() {
                     } else {
                         Home(
                             serviceOn = serviceOn.value,
-                            onOpenAccessibility = openAccessibility,
+                            // Back to the welcome screen, so the disclosure always comes before Settings.
+                            onTurnOn = { onboarded = false },
                             onTestBar = { SnapService.instance?.openBar() },
                             onSettings = { startActivity(Intent(this, SettingsActivity::class.java)) },
                             onOpenEditor = { startActivity(Intent(this, StudioActivity::class.java)) },
@@ -145,7 +146,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun Home(
     serviceOn: Boolean,
-    onOpenAccessibility: () -> Unit,
+    onTurnOn: () -> Unit,
     onTestBar: () -> Unit,
     onSettings: () -> Unit,
     onOpenEditor: () -> Unit,
@@ -190,7 +191,7 @@ private fun Home(
                         }
                     }
                     if (!serviceOn) {
-                        Button(onClick = onOpenAccessibility, modifier = Modifier.fillMaxWidth()) {
+                        Button(onClick = onTurnOn, modifier = Modifier.fillMaxWidth()) {
                             Text("Turn on StudioSnap")
                         }
                     }

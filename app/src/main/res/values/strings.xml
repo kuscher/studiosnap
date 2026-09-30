@@ -2,5 +2,5 @@
     <string name="app_name">StudioSnap</string>
     <string name="capture_name">StudioSnap Capture</string>
     <string name="a11y_label">StudioSnap capture</string>
-    <string name="a11y_description">StudioSnap uses the accessibility service to capture your screen when you press the capture key, to read window positions for snapping, and to route the shortcut keys you choose. It never sends anything anywhere: StudioSnap has no internet permission, and its code is open source. You can turn this off any time.</string>
+    <string name="a11y_description">StudioSnap uses the accessibility service to capture your screen when you press the Screenshot key (it checks key presses only for that shortcut), to read where windows and on-screen elements are for snapping, to read on-screen text when you capture Text, and to scroll a window for Scroll capture. It never sends anything anywhere: StudioSnap has no internet permission, and its code is open source. You can turn this off any time.</string>
 </resources>
