@@ -161,6 +161,17 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
   takes touches (the earlier full-screen card overlay ate all taps for 9s). Capped to one card.
 - Debug: `./ss debug ocr` (synthetic OCR self-test).
 
+## The bar during a recording (branch bar-while-recording)
+- Opened while a recording runs, the bar starts in Video mode, and its main button is a red
+  **Stop** (`Sym.STOP`) that ends the recording, instead of a Record that could only say "Already
+  recording". Record mode's live camera toggle is right there too; Screenshot mode is one click
+  away (a Window-mode shot leaves the bubble out).
+- A click elsewhere on the overlay in Video mode only closes the bar while a recording runs: a
+  stray click must never stop a recording (`CaptureSession.tapAt`).
+- The mode is called **Video** (was "Record", next to a "Record" button). Modes are nouns
+  (Screenshot, Video), the main button is a verb (Capture, Record, Stop). Code keeps
+  `CaptureMode.REC`.
+
 ## Recording audio: mic + system audio (2026-09-28, verified on device)
 - Record mode shows two toggles in the bar: **mic** (voice-over) and **system audio** (what apps
   play, via AudioPlaybackCapture on the same MediaProjection). Persisted in `Settings`

@@ -11,6 +11,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import io.github.kuscher.studiosnap.record.RecOptions
+import io.github.kuscher.studiosnap.record.RecordingBus
 import io.github.kuscher.studiosnap.record.RecToggle
 import io.github.kuscher.studiosnap.service.SnapService
 import io.github.kuscher.studiosnap.ui.CaptureMode
@@ -186,7 +187,11 @@ class CaptureSession(
 
     fun tapAt(p: Offset): Boolean {
         // In Record mode a click anywhere records the screen (region/window recording not built yet).
-        if (mode == CaptureMode.REC) { if (recordReady()) { onRecord(); finish() }; return true }
+        // During a recording it only closes the bar: a stray click must never stop the recording.
+        if (mode == CaptureMode.REC) {
+            if (RecordingBus.active) finish() else if (recordReady()) { onRecord(); finish() }
+            return true
+        }
         // A click without a drag grabs whatever is highlighted: a window, an element, or the screen.
         when (source) {
             Source.SCREEN -> { captureScreen(); return true }
@@ -202,7 +207,11 @@ class CaptureSession(
     }
 
     fun primary() {
-        if (mode == CaptureMode.REC) { if (recordReady()) { onRecord(); finish() }; return }
+        if (mode == CaptureMode.REC) {
+            // During a recording the Record button is Stop.
+            if (RecordingBus.active) { RecordingBus.controller?.stop(); finish() } else if (recordReady()) { onRecord(); finish() }
+            return
+        }
         when (source) {
             Source.SCREEN -> captureScreen()
             Source.WINDOW -> hover?.winId?.let { id -> windows.find { it.id == id }?.let { captureWindow(it) } }
