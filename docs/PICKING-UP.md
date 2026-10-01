@@ -414,6 +414,7 @@ Done when: Screenshot key → drag → paste into Gmail is under 2 s and feels f
   (`pm list features`), and it was noticed on a Dell XPS Googlebook. True of every build since 0.4.
 - The manifest now marks `camera`, `camera.autofocus` and `microphone` as `required="false"`. Check after any
   permission change: `aapt2 dump badging <apk> | grep uses-` must show only `faketouch` as required.
-- Version 0.5.1, code 7. Not released yet: after merging, push the tag `v0.5.1` (GitHub APK), then the bundle
-  is built and uploaded to Play's closed-testing track on the Mac (the new key isn't on the Debian VM), and
-  Alex sends it for review. Play Console › Device catalog should then list the Dell and the HP as supported.
+- Version 0.5.1, code 7. Released 2026-10-01: GitHub v0.5.1 from the tag workflow (cert 3A:D1:42:18…, only
+  `faketouch` required), and the same commit's bundle, built and signed on the Mac, on Play's closed-testing track,
+  SENT FOR REVIEW (Alex: "submit ... to play"). After approval, Play Console › Device catalog should list the Dell
+  and the HP as supported.
