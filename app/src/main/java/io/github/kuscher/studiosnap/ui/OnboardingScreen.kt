@@ -1,6 +1,5 @@
 package io.github.kuscher.studiosnap.ui
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,9 +25,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,7 +40,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.kuscher.studiosnap.util.Sym
@@ -56,15 +55,17 @@ private val features = listOf(
 
 /**
  * First-run welcome, laid out for a desktop-class window: a two-column hero (copy + setup on the
- * left, a live product preview on the right) that stacks on narrow windows. Re-checks [serviceOn]
- * on resume, so it flips to "all set" the moment the service is enabled.
+ * left, a live product preview on the right) that stacks on narrow windows, sized to fit the
+ * window a Googlebook opens it in without scrolling. Re-checks [serviceOn] on resume, so it flips
+ * to "all set" the moment the service is enabled.
  */
 @Composable
 fun OnboardingScreen(
     serviceOn: Boolean,
+    permissions: Permissions,
+    onAllowNotifications: () -> Unit,
     onEnable: () -> Unit,
     onStart: () -> Unit,
-    onSkip: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     val dark = scheme.surface.luminance() < 0.5f
@@ -75,149 +76,121 @@ fun OnboardingScreen(
         val wide = maxWidth >= 900.dp
         val content: @Composable () -> Unit = {
             Column(
-                Modifier.widthIn(max = 1160.dp).fillMaxWidth().padding(horizontal = 48.dp, vertical = 44.dp),
-                verticalArrangement = Arrangement.spacedBy(28.dp),
+                Modifier.widthIn(max = 1160.dp).fillMaxWidth().padding(horizontal = 48.dp, vertical = 40.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 if (wide) {
                     Row(horizontalArrangement = Arrangement.spacedBy(56.dp), verticalAlignment = Alignment.CenterVertically) {
-                        LeftPane(serviceOn, onEnable, onStart, onSkip, Modifier.weight(1f))
-                        HeroPreview(dark, Modifier.weight(1.08f).aspectRatio(1.42f))
+                        LeftPane(serviceOn, permissions, onAllowNotifications, onEnable, onStart, Modifier.weight(1f))
+                        Column(Modifier.weight(1.08f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            HeroPreview(dark, Modifier.fillMaxWidth().aspectRatio(1.42f))
+                            KeyHint()
+                        }
                     }
                 } else {
                     HeroPreview(dark, Modifier.fillMaxWidth().aspectRatio(1.6f))
-                    LeftPane(serviceOn, onEnable, onStart, onSkip, Modifier.fillMaxWidth())
+                    KeyHint()
+                    LeftPane(serviceOn, permissions, onAllowNotifications, onEnable, onStart, Modifier.fillMaxWidth())
                 }
-                Text(
-                    "No internet permission — captures never leave your device.",
-                    fontSize = 12.sp, color = scheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
-                )
             }
         }
-        content()
+        ProvideTextStyle(LocalTextStyle.current.merge(ReadableText)) { content() }
     }
 }
 
 @Composable
 private fun LeftPane(
     serviceOn: Boolean,
+    permissions: Permissions,
+    onAllowNotifications: () -> Unit,
     onEnable: () -> Unit,
     onStart: () -> Unit,
-    onSkip: () -> Unit,
     modifier: Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(22.dp)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(40.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(
                 Modifier.size(52.dp).clip(RoundedCornerShape(15.dp)).background(scheme.primary),
                 contentAlignment = Alignment.Center,
             ) { SymText(Sym.PHOTO_CAMERA, size = 28, filled = true, color = scheme.onPrimary) }
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("StudioSnap", fontSize = 34.sp, fontWeight = FontWeight.Bold, color = scheme.onSurface)
                 Text("Screenshot, record, and mark up anything on your Googlebook.", fontSize = 15.sp, color = scheme.onSurfaceVariant)
             }
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            features.forEach { f ->
-                Row(horizontalArrangement = Arrangement.spacedBy(13.dp), verticalAlignment = Alignment.Top) {
-                    Box(
-                        Modifier.size(40.dp).clip(RoundedCornerShape(11.dp)).background(scheme.primaryContainer),
-                        contentAlignment = Alignment.Center,
-                    ) { SymText(f.glyph, size = 22, filled = true, color = scheme.onPrimaryContainer) }
-                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                        Text(f.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
-                        Text(f.body, fontSize = 13.sp, color = scheme.onSurfaceVariant)
-                    }
+        // Two by two, so the setup card fits in the window without scrolling.
+        Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+            features.chunked(2).forEach { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    pair.forEach { f -> FeatureItem(f, Modifier.weight(1f)) }
                 }
             }
         }
 
-        AnimatedContent(targetState = serviceOn, label = "onboard-cta") { ready ->
-            if (ready) ReadyCard(onStart) else EnableCard(onEnable, onSkip)
-        }
+        SetupCard(serviceOn, permissions, onAllowNotifications, onEnable, onStart)
     }
 }
 
+/** How to capture once set up: the caption under the preview. */
 @Composable
-private fun EnableCard(onEnable: () -> Unit, onSkip: () -> Unit) {
+private fun KeyHint() {
     val scheme = MaterialTheme.colorScheme
-    ElevatedCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                SymText(Sym.BOLT, size = 22, filled = true, color = scheme.primary)
-                Text("One-time setup: the accessibility service", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = scheme.onSurface)
-            }
-            // Google Play's prominent disclosure: what the service accesses and what StudioSnap does
-            // with it, shown before the user agrees. Keep it in step with a11y_description.
-            Text(
-                "StudioSnap captures your screen through Android's accessibility service. With it on, StudioSnap:",
-                fontSize = 13.sp, color = scheme.onSurfaceVariant,
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Bullet("checks each key press only for the Screenshot key or Action + Shift + S; other keys pass straight through and are never recorded")
-                Bullet("takes a screenshot of the screen when you press that key or use the capture bar")
-                Bullet("while you capture, reads where windows and on-screen elements are so a selection can snap to them, reads their text when you pick Text, and scrolls a window for Scroll capture")
-            }
-            Text(
-                "Everything stays on your Googlebook: StudioSnap has no internet permission and doesn't collect or " +
-                    "share anything. You can turn the service off in Settings › Accessibility at any time.",
-                fontSize = 13.sp, color = scheme.onSurfaceVariant,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                Step(1, "Open Accessibility")
-                Step(2, "Tap StudioSnap")
-                Step(3, "Toggle it on")
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Button(onClick = onEnable) {
-                    SymText(Sym.BOLT, size = 18, filled = true, color = scheme.onPrimary)
-                    Text("  Agree and turn on")
-                }
-                TextButton(onClick = onSkip) { Text("Not now", color = scheme.onSurfaceVariant) }
-            }
-        }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+        SymText(Sym.KEYBOARD, size = 20, color = scheme.onSurfaceVariant)
+        Text("Press the Screenshot key, or Action + Shift + S, anywhere.", fontSize = 13.sp, color = scheme.onSurfaceVariant)
     }
 }
 
 @Composable
-private fun ReadyCard(onStart: () -> Unit) {
+private fun FeatureItem(f: Feature, modifier: Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(13.dp), verticalAlignment = Alignment.Top) {
+        Box(
+            Modifier.size(40.dp).clip(RoundedCornerShape(11.dp)).background(scheme.primaryContainer),
+            contentAlignment = Alignment.Center,
+        ) { SymText(f.glyph, size = 22, filled = true, color = scheme.onPrimaryContainer) }
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(f.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = scheme.onSurface)
+            Text(f.body, fontSize = 13.sp, color = scheme.onSurfaceVariant)
+        }
+    }
+}
+
+/**
+ * Everything to set up, in one card: the accessibility service (required), notifications
+ * (recommended), and a line on the microphone and camera, which Record mode asks for when they're
+ * first turned on. Turn on shows Google Play's disclosure first ([AccessibilityDisclosure]). Start
+ * capturing is always there, disabled until the service is on (no skip: the editor has its own
+ * launcher entry).
+ */
+@Composable
+private fun SetupCard(
+    serviceOn: Boolean,
+    permissions: Permissions,
+    onAllowNotifications: () -> Unit,
+    onEnable: () -> Unit,
+    onStart: () -> Unit,
+) {
     val scheme = MaterialTheme.colorScheme
     val green = Color(0xFF1E8E4E)
     ElevatedCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                SymText(Sym.CHECK_CIRCLE, size = 24, filled = true, color = green)
-                Text("You're all set", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = scheme.onSurface)
+                if (serviceOn) SymText(Sym.CHECK_CIRCLE, size = 24, filled = true, color = green)
+                else SymText(Sym.BOLT, size = 22, filled = true, color = scheme.primary)
+                Text(if (serviceOn) "You're all set" else "One-time setup", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = scheme.onSurface)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                SymText(Sym.KEYBOARD, size = 22, color = scheme.onSurfaceVariant)
-                Text("Press the Screenshot key — or Action + Shift + S — anywhere to capture.", fontSize = 13.sp, color = scheme.onSurfaceVariant)
-            }
-            Button(onClick = onStart) { Text("Start capturing") }
+            ServiceRow(serviceOn, onEnable)
+            NotificationsRow(permissions.notifications, onAllowNotifications)
+            Text(
+                "Microphone and camera access is only requested if you turn them on for a recording. " +
+                    "No internet permission: captures never leave your device.",
+                fontSize = 13.sp, color = scheme.onSurfaceVariant,
+            )
+            Button(onClick = onStart, enabled = serviceOn, modifier = Modifier.fillMaxWidth()) { Text("Start capturing") }
         }
-    }
-}
-
-@Composable
-private fun Bullet(text: String) {
-    val scheme = MaterialTheme.colorScheme
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("•", fontSize = 13.sp, color = scheme.onSurfaceVariant)
-        Text(text, fontSize = 13.sp, color = scheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun Step(n: Int, text: String) {
-    val scheme = MaterialTheme.colorScheme
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.size(22.dp).clip(CircleShape).background(scheme.primary),
-            contentAlignment = Alignment.Center,
-        ) { Text("$n", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = scheme.onPrimary) }
-        Text(text, fontSize = 13.sp, color = scheme.onSurface)
     }
 }
 

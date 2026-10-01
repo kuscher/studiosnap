@@ -76,6 +76,7 @@ object Sym {
     const val MIC = "\ue31d"  // mic
     const val MIC_OFF = "\ue02b"  // mic_off
     const val MORE_HORIZ = "\ue5d3"  // more_horiz
+    const val NOTIFICATIONS = "\ue7f4"  // notifications
     const val OPACITY = "\ue91c"  // opacity
     const val OPEN_IN_FULL = "\uf1ce"  // open_in_full
     const val OPEN_IN_NEW = "\ue89e"  // open_in_new
