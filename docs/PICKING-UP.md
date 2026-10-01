@@ -396,3 +396,13 @@ Done when: Screenshot key → drag → paste into Gmail is under 2 s and feels f
 ./ss shot p0      # /tmp/ss-p0.png = the overlay only
 ./ss logs         # recent StudioSnap logcat
 ```
+
+## 0.5.0 (2026-09-30): Jesse's five PRs, released
+- #8 to #12 (messages in an overlay pill, the permissions card and first run with the disclosure as a dialog,
+  bubble controls on click while recording, camera off at Stop, Video mode with Stop) are in 0.5.0 (code 6).
+  Notes: `docs/release-notes/0.5.0.md`. Tagged `v0.5.0`, so the release workflow publishes the APK.
+- Play, as Jesse asked in #9: both declaration videos re-recorded on the "playvideo" emulator with 0.5.0
+  (accessibility: Turn on → dialog → Cancel, Turn on → Agree and turn on → consent, Screenshot key capture,
+  https://youtu.be/mwZW_b2e714; recording, now "Video" mode, https://youtu.be/y0SnZ3-ifPg), filed in the Console.
+  Listing screenshot 04 and `docs/screenshots/onboarding.png` show 0.5.0's first run. The 0.5.0 AAB replaced
+  0.4.1 as the closed-testing draft.
