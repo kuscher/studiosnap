@@ -1,8 +1,10 @@
-# Pushing a tag like v0.5 builds, signs and publishes that release (see docs/RELEASING.md).
+# Pushing a tag like v0.5.2 builds, signs and publishes that release: the APK as a GitHub release, the
+# bundle as a draft on Google Play's closed-testing track (see docs/RELEASING.md).
 # "Run workflow" on the Actions tab is a dry run: the same signed build and checks, nothing published.
 #
-# Only people with write access can push tags or run this, and forks never get the secrets. The job
-# that holds the signing key uses only GitHub's own actions, pinned to exact commits.
+# The signing key and the Play key are secrets of the environments "release" and "play", which only
+# main and v* tags can use; forks and pull requests never get them. The job that holds the signing
+# key uses only GitHub's own actions, pinned to exact commits, and the Play job never sees that key.
 name: Release
 
 on:
@@ -11,12 +13,23 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CERT: 3ad14218660486bcd4888e24d1c34f1684a243b7896f6abd6c728793f2f4570f # the StudioSnap release key
+  PLAY_NOTES: store-submission/listing/en-US/release-notes.txt
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    environment: release
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -33,14 +46,15 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           test -f "docs/release-notes/$VERSION.md" || { echo "::error::docs/release-notes/$VERSION.md is missing"; exit 1; }
           grep -q "versionName = \"$VERSION\"" app/build.gradle.kts || { echo "::error::versionName in app/build.gradle.kts isn't $VERSION"; exit 1; }
+          test "$(wc -m < "$PLAY_NOTES")" -le 500 || { echo "::error::$PLAY_NOTES is over Play's 500 characters"; exit 1; }
 
       - name: SDK packages
         run: $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
 
       - name: Signing key
         env:
-          KEYSTORE_B64: ${{ secrets.STUDIOSNAP_KEYSTORE_B64 }}
-          KEYSTORE_PASS: ${{ secrets.STUDIOSNAP_KEYSTORE_PASS }}
+          KEYSTORE_B64: ${{ secrets.SIGNING_KEYSTORE_B64 }}
+          KEYSTORE_PASS: ${{ secrets.SIGNING_KEYSTORE_PASS }}
         run: |
           test -n "$KEYSTORE_B64" && test -n "$KEYSTORE_PASS" || { echo "::error::the signing secrets aren't set"; exit 1; }
           mkdir -p ~/.config/studiosnap
@@ -53,18 +67,20 @@ jobs:
           # Gradle's 512 MB default.
           mkdir -p ~/.gradle
           echo "org.gradle.jvmargs=-Xmx4g -XX:+UseParallelGC -Dfile.encoding=UTF-8" >> ~/.gradle/gradle.properties
-          ./gradlew :app:assembleRelease --no-daemon --console=plain
+          ./gradlew :app:assembleRelease :app:bundleRelease --no-daemon --console=plain
 
       - name: Check the certificate
         run: |
           APK=app/build/outputs/apk/release/app-release.apk
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" \
-            | grep -q "SHA-256 digest: 3ad14218660486bcd4888e24d1c34f1684a243b7896f6abd6c728793f2f4570f" \
+          AAB=app/build/outputs/bundle/release/app-release.aab
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" | grep -q "SHA-256 digest: $CERT" \
             || { echo "::error::the APK isn't signed with the StudioSnap release key"; exit 1; }
+          test "$(keytool -printcert -jarfile "$AAB" | sed -n 's/.*SHA256: //p' | head -1 | tr -d ':' | tr 'A-F' 'a-f')" = "$CERT" \
+            || { echo "::error::the bundle isn't signed with the StudioSnap release key"; exit 1; }
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$APK" | head -1
-          sha256sum "$APK"
+          sha256sum "$APK" "$AAB"
 
-      - name: Publish
+      - name: Publish on GitHub
         if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -77,6 +93,41 @@ jobs:
             --notes-file "docs/release-notes/$VERSION.md" \
             StudioSnap.apk "StudioSnap-$VERSION.apk" "StudioSnap-$VERSION.apk.sha256"
 
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bundle
+          path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Remove the key
         if: always()
         run: rm -rf ~/.config/studiosnap
+
+  play:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: play
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: The bundle from the build job
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$GITHUB_RUN_ID" --name bundle --dir bundle
+
+      - name: Google Play (a draft on closed testing; a dry run only checks the key)
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            node tools/play-upload.mjs io.github.kuscher.studiosnap bundle/app-release.aab "$PLAY_NOTES" --name "${GITHUB_REF_NAME#v}"
+          else
+            node tools/play-upload.mjs io.github.kuscher.studiosnap --check
+          fi
