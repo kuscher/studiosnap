@@ -89,9 +89,14 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk StudioSnap.apk
           cp StudioSnap.apk "StudioSnap-$VERSION.apk"
           sha256sum "StudioSnap-$VERSION.apk" > "StudioSnap-$VERSION.apk.sha256"
-          gh release create "$GITHUB_REF_NAME" --verify-tag --title "StudioSnap $VERSION" \
-            --notes-file "docs/release-notes/$VERSION.md" \
-            StudioSnap.apk "StudioSnap-$VERSION.apk" "StudioSnap-$VERSION.apk.sha256"
+          # A re-run, or a release made by hand with the local script: leave what is published as it is.
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            echo "::notice::the release $GITHUB_REF_NAME exists already; not publishing again"
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "StudioSnap $VERSION" \
+              --notes-file "docs/release-notes/$VERSION.md" \
+              StudioSnap.apk "StudioSnap-$VERSION.apk" "StudioSnap-$VERSION.apk.sha256"
+          fi
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
