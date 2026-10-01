@@ -406,3 +406,14 @@ Done when: Screenshot key → drag → paste into Gmail is under 2 s and feels f
   https://youtu.be/mwZW_b2e714; recording, now "Video" mode, https://youtu.be/y0SnZ3-ifPg), filed in the Console.
   Listing screenshot 04 and `docs/screenshots/onboarding.png` show 0.5.0's first run. The 0.5.0 AAB replaced
   0.4.1 as the closed-testing draft.
+
+## 0.5.1 (2026-10-01): Play showed Googlebooks as "not compatible"
+- The CAMERA permission implies `android.hardware.camera` (a REAR camera) as a required feature, and
+  RECORD_AUDIO implies `android.hardware.microphone`. Only `camera.any` was marked optional, so Play filtered
+  every Googlebook with just a front webcam: the HP reports `camera.front` and `camera.any` only
+  (`pm list features`), and it was noticed on a Dell XPS Googlebook. True of every build since 0.4.
+- The manifest now marks `camera`, `camera.autofocus` and `microphone` as `required="false"`. Check after any
+  permission change: `aapt2 dump badging <apk> | grep uses-` must show only `faketouch` as required.
+- Version 0.5.1, code 7. Not released yet: after merging, push the tag `v0.5.1` (GitHub APK), then the bundle
+  is built and uploaded to Play's closed-testing track on the Mac (the new key isn't on the Debian VM), and
+  Alex sends it for review. Play Console › Device catalog should then list the Dell and the HP as supported.
