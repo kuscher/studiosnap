@@ -223,6 +223,9 @@ class RecordService : Service(), RecordController {
         stopRequested = true
         RecordingBus.active = false
         ticker.removeCallbacks(tick)
+        // The camera bubble goes now, not once the file is saved: nothing after stopPtsUs is
+        // recorded, so its disappearing isn't in the video, and the camera light goes off at Stop.
+        SnapService.instance?.onRecordingStopping()
         audio?.stop()
         // If the encoder can't take end-of-stream, stopping it makes the drain loop exit instead.
         try { codec?.signalEndOfInputStream() } catch (e: Exception) { runCatching { codec?.stop() } }
@@ -236,21 +239,25 @@ class RecordService : Service(), RecordController {
         val ok = w != null && w.finish() && videoTrack >= 0 && w.sampleCount(videoTrack) > 0
         cleanup()
         val dur = RecordingBus.elapsedMs
-        ticker.post {
+        // Copying a long recording into Movies takes a while, so it runs on its own thread; the
+        // main thread only hears the result. The service stays in the foreground until then.
+        Thread({
             val uri = if (!discarded && ok && cacheFile.exists() && cacheFile.length() > 0) saveToMovies(cacheFile) else null
-            if (uri != null) {
-                val thumb = runCatching { contentResolver.loadThumbnail(uri, android.util.Size(600, 380), null) }.getOrNull()
-                SnapService.instance?.onRecordingSaved(true, dur, thumb)
-            } else {
-                if (!discarded) tell("Couldn't save the recording")
-                cacheFile.delete()
-                SnapService.instance?.onRecordingSaved(false, 0L, null)
+            val thumb = uri?.let { runCatching { contentResolver.loadThumbnail(it, android.util.Size(600, 380), null) }.getOrNull() }
+            if (uri == null) cacheFile.delete()
+            ticker.post {
+                if (uri != null) {
+                    SnapService.instance?.onRecordingSaved(true, dur, thumb)
+                } else {
+                    if (!discarded) tell("Couldn't save the recording")
+                    SnapService.instance?.onRecordingSaved(false, 0L, null)
+                }
+                RecordingBus.controller = null
+                instance = null
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
             }
-            RecordingBus.controller = null
-            instance = null
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
-        }
+        }, "ss-rec-save").start()
     }
 
     private fun cleanup() {
