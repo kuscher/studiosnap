@@ -30,9 +30,9 @@ made with `scripts/play/graphics.mjs` in kuscher/googlebook-tech.
 1. **App signing (decide once, it can't be undone).** Recommended, as for Summa: *Use existing app signing key* and upload
    `~/.config/studiosnap/keystore.jks` (also in the repo secrets) with Google's PEPK tool, so the Play build and the APKs on GitHub have the same signature and people can
    move between them without uninstalling. The same key is the upload key.
-2. **Build the bundle** (Play only takes .aab files): `./gradlew :app:bundleRelease` → `app/build/outputs/bundle/release/app-release.aab`, signed with `~/.config/studiosnap/keystore.jks`. The release workflow (`.github/workflows/release.yml`) only builds the APK; the AAB is built where the key is (it's also in the repo secrets `STUDIOSNAP_KEYSTORE_B64` / `_PASS`). Each upload needs a higher version code than the last
+2. **Build the bundle** (Play only takes .aab files): `./gradlew :app:bundleRelease` → `app/build/outputs/bundle/release/app-release.aab`, signed with `~/.config/studiosnap/keystore.jks`. The release workflow (`.github/workflows/release.yml`) does this on every `v*` tag and uploads the bundle to the closed-testing track as a draft (docs/RELEASING.md, section B); by hand it works wherever the key is. Each upload needs a higher version code than the last
    (`versionCode` in `app/build.gradle.kts` (7 for 0.5.1)).
 3. **Closed test first.** The developer account is a personal one: before production, a closed test with at least 12
    testers opted in for 14 days in a row.
 4. **Store listing, store settings and App content:** filled in from these files on 30 September 2026.
-5. **Release:** add the bundle to the closed testing track, paste `release-notes.txt`, send for review.
+5. **Release:** the tag's workflow adds the bundle to the closed testing track as a draft with `release-notes.txt`; open the draft in the Play Console (Next › Save) and send it for review.

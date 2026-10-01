@@ -15,10 +15,11 @@ SDK 37), native Kotlin + Jetpack Compose, MIT. The floating **capture bar** is t
   Alias `studiosnap`, cert SHA-256 `3A:D1:42:18:66:04:86:BC:D4:88:8E:24:D1:C3:4F:16:84:A2:43:B7:89:6F:6A:BD:6C:72:87:93:F2:F4:57:0F`.
   A new key since 2026-09-30 (also Google Play's; GitHub installs of 0.4 and earlier must be uninstalled once).
   Backed up with its password to the user's a private folder (a README has the restore
-  steps); never in git. The release workflow reads it from the secrets `STUDIOSNAP_KEYSTORE_B64` and `STUDIOSNAP_KEYSTORE_PASS`. Every
+  steps); never in git. Every
   future release MUST be signed with this exact key or users can't update without uninstalling.
-  The keystore and its password are also the repo's Actions secrets `STUDIOSNAP_KEYSTORE_B64` /
-  `STUDIOSNAP_KEYSTORE_PASS`, used only by the tag-triggered release workflow.
+  **You don't need the key file to release:** it is also in the repo's GitHub environment `release`
+  (`SIGNING_KEYSTORE_B64` / `SIGNING_KEYSTORE_PASS`), and pushing a tag `v<version>` makes the release workflow build, sign
+  and publish the APK on GitHub and put the bundle on Google Play as a draft (docs/RELEASING.md, section B).
 - Dev env: SDK/adb from `~/.config/vscodebook/android.env`; adb runs over a unix socket, so always
   go through `./ss` (or source that env) — never a bare `adb`.
 
