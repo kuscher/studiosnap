@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.kuscher.studiosnap.capture.CaptureSession
 import io.github.kuscher.studiosnap.record.RecToggle
+import io.github.kuscher.studiosnap.record.RecordingBus
 import io.github.kuscher.studiosnap.util.Sym
 
 enum class CaptureMode { SHOT, REC }
@@ -47,6 +48,8 @@ private fun Divider() {
 private fun PrimaryButton(session: CaptureSession, enabled: Boolean, onClick: () -> Unit) {
     val hud = LocalHud.current
     val rec = session.mode == CaptureMode.REC
+    // A recording is running: the button stops it instead of starting another.
+    val stop = rec && RecordingBus.active
     val bg = if (rec) hud.rec else hud.primary
     val fg = if (rec) hud.onRec else hud.onPrimary
     Row(
@@ -60,8 +63,8 @@ private fun PrimaryButton(session: CaptureSession, enabled: Boolean, onClick: ()
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        SymText(if (rec) Sym.FIBER_MANUAL_RECORD else Sym.PHOTO_CAMERA, size = 22, color = fg)
-        HudText(if (rec) "Record" else if (session.source == Source.TEXT) "Copy text" else "Capture", size = 14, color = fg)
+        SymText(if (stop) Sym.STOP else if (rec) Sym.FIBER_MANUAL_RECORD else Sym.PHOTO_CAMERA, size = 22, color = fg)
+        HudText(if (stop) "Stop" else if (rec) "Record" else if (session.source == Source.TEXT) "Copy text" else "Capture", size = 14, color = fg)
     }
 }
 
@@ -92,7 +95,7 @@ fun CaptureBar(
         if (session.collapsed) {
             HudButton(
                 if (session.mode == CaptureMode.REC) Sym.VIDEOCAM else Sym.PHOTO_CAMERA,
-                if (session.mode == CaptureMode.REC) "Recording" else "Screenshot",
+                if (session.mode == CaptureMode.REC) "Video" else "Screenshot",
                 selected = true,
                 onClick = { session.changeMode(if (session.mode == CaptureMode.REC) CaptureMode.SHOT else CaptureMode.REC) },
             )
@@ -103,7 +106,7 @@ fun CaptureBar(
 
         HudTrack {
             ModeButton(session, CaptureMode.SHOT, Sym.PHOTO_CAMERA, "Screenshot")
-            ModeButton(session, CaptureMode.REC, Sym.VIDEOCAM, "Record")
+            ModeButton(session, CaptureMode.REC, Sym.VIDEOCAM, "Video")
         }
         Divider()
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
