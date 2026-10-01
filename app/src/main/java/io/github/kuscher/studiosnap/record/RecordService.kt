@@ -146,7 +146,7 @@ class RecordService : Service(), RecordController {
         val wr = Mp4Writer(cacheFile.absolutePath, tracks) {
             ticker.post {
                 if (!stopRequested) {
-                    android.widget.Toast.makeText(this, "Recording stopped: couldn't write the file", android.widget.Toast.LENGTH_LONG).show()
+                    tell("Recording stopped: couldn't write the file")
                     stop()
                 }
             }
@@ -242,7 +242,7 @@ class RecordService : Service(), RecordController {
                 val thumb = runCatching { contentResolver.loadThumbnail(uri, android.util.Size(600, 380), null) }.getOrNull()
                 SnapService.instance?.onRecordingSaved(true, dur, thumb)
             } else {
-                if (!discarded) android.widget.Toast.makeText(this, "Couldn't save the recording", android.widget.Toast.LENGTH_LONG).show()
+                if (!discarded) tell("Couldn't save the recording")
                 cacheFile.delete()
                 SnapService.instance?.onRecordingSaved(false, 0L, null)
             }
@@ -290,6 +290,19 @@ class RecordService : Service(), RecordController {
             null
         } finally {
             file.delete()
+        }
+    }
+
+    /**
+     * Tells the user something, in the accessibility service's own window when it's up: a toast
+     * from here is dropped while StudioSnap's notifications are off, since the app is in the
+     * background. Between service objects it's parked for the next one, with a toast meanwhile.
+     */
+    private fun tell(text: String) {
+        if (SnapService.instance?.notice(text, long = true) != true) {
+            // No service object right now: the next one shows it. The toast may show meanwhile.
+            SnapService.parkNotice(text)
+            android.widget.Toast.makeText(this, text, android.widget.Toast.LENGTH_LONG).show()
         }
     }
 

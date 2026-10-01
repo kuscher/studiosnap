@@ -65,6 +65,9 @@ private fun PrimaryButton(session: CaptureSession, enabled: Boolean, onClick: ()
     }
 }
 
+/** The bar's height (dp); see [BAR_BOTTOM_GAP_DP]. */
+const val BAR_HEIGHT_DP = 64
+
 /** The floating capture bar, driven by the shared [CaptureSession]. */
 @Composable
 fun CaptureBar(
@@ -79,7 +82,7 @@ fun CaptureBar(
             .shadow(16.dp, CircleShape, clip = false)
             .background(hud.surface, CircleShape)
             .border(1.dp, hud.line, CircleShape)
-            .height(64.dp)
+            .height(BAR_HEIGHT_DP.dp)
             .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),

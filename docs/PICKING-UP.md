@@ -279,6 +279,26 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
 - `RecordService` clears `SnapService.recordPending` itself: with the service between objects, a
   failed start used to leave it set (camera bubble up, "Already recording" until process death).
 
+## Service messages in our own window, not toasts (branch service-messages)
+- Found testing 0.4 on the Acer: a fresh install never asks for notifications, and Android drops a
+  background app's toasts while its notifications are off (logcat: `NotificationService:
+  Suppressing toast from package io.github.kuscher.studiosnap by user request.`). The service is
+  always in the background, so every toast from it vanished: PR #5's "Stop the recording to change
+  the mic or system audio.", "Already recording", "… is off", and the recording's save errors.
+- `SnapService.notice(text, long)` shows the message as a pill above the taskbar in an untouchable
+  accessibility overlay (`ComposeOverlay(touchable = false)`), gone after 2.5 s (4 s when long).
+  While the bar's frozen screenshot is being taken (its retry included) a message waits, so it
+  can't end up in the capture. A recorder message that comes while no service object is alive
+  (Android recreates the service around dialogs) is parked in `pendingNotice` and shown by the
+  next object if it connects within 10 s.
+  It's re-added each time so it sits above the bar's window. While the bar is open it goes right
+  next to it (above a bar floating over the taskbar, below one docked at the top), where the click
+  that caused it just was; `BAR_BOTTOM_GAP_DP`, `BAR_TOP_GAP_DP` and `BAR_HEIGHT_DP` are shared
+  with the bar's layout so the two can't drift apart. Opening the bar clears it first, so it
+  isn't in the frozen screenshot, and a refusal's message comes after the bar is restored. `RecordService.tell` uses it, with a toast as
+  the fallback while the service is between objects. `debug notice <text>` shows one from adb.
+- CaptureActivity's toast stays: it comes from an activity in the foreground, so it shows.
+
 ## Next — republish release w/ these fixes when user OKs; polish (scroll progress HUD, home desktop layout) + 4b recording (paused).
 Remaining Phase 1 work:
 1. Capture engine: `takeScreenshot` (full/area-crop) and `takeScreenshotOfWindow`; ~333 ms limit.
