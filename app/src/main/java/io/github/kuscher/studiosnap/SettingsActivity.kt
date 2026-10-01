@@ -29,14 +29,33 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.kuscher.studiosnap.util.Settings
+import io.github.kuscher.studiosnap.ui.Permissions
+import io.github.kuscher.studiosnap.ui.AccessibilityDisclosure
+import io.github.kuscher.studiosnap.ui.PermissionsCard
+import io.github.kuscher.studiosnap.util.NotificationAccess
 
 class SettingsActivity : ComponentActivity() {
+    private val permissions = mutableStateOf(Permissions(service = false, notifications = false, mic = false, camera = false))
+    private lateinit var notifications: NotificationAccess
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val s = Settings(this)
+        notifications = NotificationAccess(this) { permissions.value = Permissions.read(this) }
         setContent {
             MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
                 Surface(Modifier.fillMaxSize()) {
+                    // Play's disclosure first; only Agree opens Accessibility settings.
+                    var disclose by remember { mutableStateOf(false) }
+                    if (disclose) {
+                        AccessibilityDisclosure(
+                            onAgree = {
+                                disclose = false
+                                startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                            },
+                            onCancel = { disclose = false },
+                        )
+                    }
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Settings", fontSize = 28.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
 
@@ -51,12 +70,23 @@ class SettingsActivity : ComponentActivity() {
                         Section("Capture bar")
                         Toggle("Dock the bar at the top", "Otherwise it floats above the taskbar.", s.barAtTop) { s.barAtTop = it }
 
+                        Section("Permissions")
+                        PermissionsCard(
+                            permissions.value, notifications::request, Modifier.padding(top = 6.dp),
+                            onTurnOnService = { disclose = true },
+                        )
+
                         Section("About")
                         Text("StudioSnap — a capture studio for Googlebook. Open source (MIT). No internet permission; everything stays on this device.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                     }
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        permissions.value = Permissions.read(this)
     }
 }
 
