@@ -329,6 +329,18 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
   recording, together with the mic permission when that's needed.
 - Play declaration videos: kuscher/googlebook-tech `scripts/play/videos` (flows for this app's taps).
 
+## Camera off at Stop, saving off the main thread (branch stop-camera-offmain)
+- Before, the bubble (and the camera, and its light) stayed up after Stop until the file had been
+  copied to Movies, and that copy ran on the main thread. Now `requestStop` calls
+  `SnapService.onRecordingStopping()`, which re-runs `updateBubble()`: with `RecordingBus.active`
+  off, the bubble goes (unless the bar is open in Record mode). Frames after `stopPtsUs` aren't
+  written, so the bubble disappearing isn't in the video.
+- `finishFile` copies to Movies and loads the thumbnail on an `ss-rec-save` thread, then posts the
+  result to the main thread, where a failed save is reported with `tell()` (the service's own
+  window, from service-messages). The service stays in the foreground until then.
+- Left as is: the pill still shows Stop, with the time frozen, until the file is saved. With the
+  service between objects at Stop, the bubble goes at save time as before.
+
 ## 0.4 release review fixes (2026-09-29)
 - A bar hidden for a permission dialog could stay hidden for good (dialog up > 60 s then denied,
   or closed without an answer): `openBar` then saw a shown bar and did nothing, while the
