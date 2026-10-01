@@ -151,6 +151,48 @@ User tested the build and reported 8 issues; all fixed + verified via the safe h
 - `./ss enable/disable` fixed to add/remove ONLY our a11y component (was overwriting the whole
   `enabled_accessibility_services`, disabling other apps like BarBook on the shared Googlebook).
 
+## Permissions card: notifications asked, mic and camera explained (branch setup-checklist)
+- Found testing 0.4 on the Acer: nothing ever asks for POST_NOTIFICATIONS, so on a fresh install
+  the recording notification (and its Stop button, new in 0.4) never shows.
+- `ui/PermissionsCard.kt` lists what StudioSnap may use beyond its accessibility service, each
+  with its tier and reason: **Accessibility service** (required; Settings only, since first run and
+  home have their own card for it), **Notifications** (recommended; an Allow button), **Microphone** and
+  **Camera** (when you use them; explained only, since Record mode already asks for them the first
+  time their toggle is turned on). It shows on the home screen while notifications are off, and
+  always in Settings › Permissions.
+- First run fits the window without scrolling (Jesse's Acer opens it at about 1230x770 dp, and the
+  page had grown to about 920 dp): the features are a 2x2 grid, and one "One-time setup" card holds
+  the service row (with the Accessibility › StudioSnap › on steps), the notifications row, and a
+  line on the mic and camera. Start capturing is a full-width button at its foot, disabled until
+  the service is on (no "Skip for now": the editor has its own launcher entry). The preview is
+  centered on the right, with the key hint as its caption. `ServiceRow` and `NotificationsRow` are shared with the card, so the
+  wording is the same everywhere. BentoBar's Setup page makes
+  the same required/optional split.
+- `util/NotificationAccess.kt` asks with Android's dialog while Android still shows it; once
+  refused twice (`Settings.notificationsAsked` and no rationale), or switched off in Settings, it
+  opens the app's notification settings instead. "Allowed" also needs the recording channel
+  (`RecordService.CHANNEL`) on, since it can be switched off by itself; then Allow opens that
+  channel's settings. A channel not created yet (no recording so far) counts as on. Screens re-read the state on resume.
+- **Rebased onto 0.4.1** (2026-09-30): Play's disclosure is a dialog, `ui/AccessibilityDisclosure.kt`
+  (0.4.1's bullets; the closing line now says what the service reads stays on the device and is
+  never collected or shared, Play's "how it's shared"; **Agree and turn on** or **Cancel**), shown by every Turn on: first
+  run, home and Settings › Permissions. Play wants it on its own (not with other permission
+  disclosures) and immediately before consent, so it isn't on the setup card, which stays as it was.
+  Cancel, Back or a tap outside never count as consent. Notifications are offered up front on the
+  card (optional) and `RecordActivity` still asks once before the first recording if they aren't on
+  by then; it also sets `notificationsAsked`, so the card's Allow knows when Android's answer is final.
+- The landing page fits the window it opens in (about 1276x758 dp on the Acer), measured on the
+  device: 716 dp of content, about 42 dp to spare. Text uses `ui/ReadableText.kt` (line height in
+  proportion to the size, no tracking, leading trimmed), so the `spacedBy` gaps are what you see:
+  40 dp page margins and between the header, features and setup card, 24 dp between feature rows,
+  18 dp inside the card. "No internet permission" is the sentence after the mic and camera line.
+  Re-measure after adding anything to the page.
+- Start capturing has to light up on the way back from Accessibility settings. In desktop windowing
+  Settings can open in its own window while MainActivity stays resumed, so `onResume` alone misses
+  it; `onTopResumedActivityChanged(true)` re-reads the service and permissions too.
+- New icon `Sym.NOTIFICATIONS` (U+E7F4); fonts regenerated with `tools/subset_symbols.py`, and the
+  128 existing glyphs were checked outline for outline against the old subsets: unchanged.
+
 ## Feedback round 2 (2026-09-28)
 - **OCR** (`capture/OcrEngine.kt`, ML Kit bundled Latin, offline, no INTERNET perm): Text source
   runs exact a11y node text first, falls back to OCR on the captured pixels when there's none
