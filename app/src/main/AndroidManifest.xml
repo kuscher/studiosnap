@@ -15,7 +15,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <!-- Only used for the camera bubble, when you turn it on in Record mode. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Optional hardware. Without these lines the CAMERA and RECORD_AUDIO permissions imply that a
+         rear camera (android.hardware.camera), autofocus and a microphone are REQUIRED, and Google
+         Play hides the app from every Googlebook with only a front webcam. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
