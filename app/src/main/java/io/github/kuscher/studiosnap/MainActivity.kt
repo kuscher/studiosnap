@@ -62,7 +62,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.kuscher.studiosnap.service.SnapService
+import io.github.kuscher.studiosnap.ui.AccessibilityDisclosure
 import io.github.kuscher.studiosnap.ui.OnboardingScreen
+import io.github.kuscher.studiosnap.ui.Permissions
+import io.github.kuscher.studiosnap.ui.PermissionsCard
+import io.github.kuscher.studiosnap.util.NotificationAccess
 import io.github.kuscher.studiosnap.util.Settings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -100,35 +104,48 @@ class MainActivity : ComponentActivity() {
     private val serviceOn = mutableStateOf(false)
     // Debug-only: pretend the service is off (to preview onboarding's enable state). Cosmetic.
     private var forceOff = false
+    private val permissions = mutableStateOf(Permissions(service = false, notifications = false, mic = false, camera = false))
+    private lateinit var notifications: NotificationAccess
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setTaskDescription(android.app.ActivityManager.TaskDescription("StudioSnap"))
         forceOff = intent?.getBooleanExtra("force_off", false) == true
         serviceOn.value = !forceOff && isServiceEnabled(this)
+        notifications = NotificationAccess(this) { permissions.value = Permissions.read(this) }
+        permissions.value = Permissions.read(this)
         setContent {
             val dark = isSystemInDarkTheme()
             MaterialTheme(colorScheme = if (dark) CoralDark else CoralLight) {
                 Surface(Modifier.fillMaxSize()) {
                     val settings = remember { Settings(this) }
                     var onboarded by remember { mutableStateOf(settings.onboardingDone) }
-                    val openAccessibility = { startActivity(Intent(SysSettings.ACTION_ACCESSIBILITY_SETTINGS)) }
+                    // Every Turn on shows Play's disclosure first; only Agree opens Accessibility settings.
+                    var disclose by remember { mutableStateOf(false) }
                     if (!onboarded) {
                         OnboardingScreen(
                             serviceOn = serviceOn.value,
-                            onEnable = openAccessibility,
+                            permissions = permissions.value,
+                            onAllowNotifications = notifications::request,
+                            onEnable = { disclose = true },
                             onStart = { settings.onboardingDone = true; onboarded = true },
-                            onSkip = { settings.onboardingDone = true; onboarded = true },
                         )
                     } else {
                         Home(
                             serviceOn = serviceOn.value,
-                            // Back to the welcome screen, so the disclosure always comes before Settings.
-                            onTurnOn = { onboarded = false },
+                            permissions = permissions.value,
+                            onAllowNotifications = notifications::request,
+                            onTurnOn = { disclose = true },
                             onTestBar = { SnapService.instance?.openBar() },
                             onSettings = { startActivity(Intent(this, SettingsActivity::class.java)) },
                             onOpenEditor = { startActivity(Intent(this, StudioActivity::class.java)) },
                             onOpen = { uri -> startActivity(Intent(Intent.ACTION_EDIT).setDataAndType(uri, "image/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) },
+                        )
+                    }
+                    if (disclose) {
+                        AccessibilityDisclosure(
+                            onAgree = { disclose = false; startActivity(Intent(SysSettings.ACTION_ACCESSIBILITY_SETTINGS)) },
+                            onCancel = { disclose = false },
                         )
                     }
                 }
@@ -138,7 +155,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        refresh()
+    }
+
+    // In desktop windowing, Accessibility settings can open in its own window while this one stays
+    // resumed, so onResume doesn't run on the way back; regaining focus re-checks too.
+    override fun onTopResumedActivityChanged(isTopResumedActivity: Boolean) {
+        super.onTopResumedActivityChanged(isTopResumedActivity)
+        if (isTopResumedActivity) refresh()
+    }
+
+    private fun refresh() {
         serviceOn.value = !forceOff && isServiceEnabled(this)
+        permissions.value = Permissions.read(this)
     }
 }
 
@@ -146,6 +175,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun Home(
     serviceOn: Boolean,
+    permissions: Permissions,
+    onAllowNotifications: () -> Unit,
     onTurnOn: () -> Unit,
     onTestBar: () -> Unit,
     onSettings: () -> Unit,
@@ -197,6 +228,9 @@ private fun Home(
                     }
                 }
             }
+
+            // Recording asks for notifications once; offer them here until they're allowed.
+            if (!permissions.notifications) PermissionsCard(permissions, onAllowNotifications)
 
             // Primary actions
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {

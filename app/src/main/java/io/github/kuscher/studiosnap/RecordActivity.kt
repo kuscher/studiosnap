@@ -33,6 +33,7 @@ class RecordActivity : Activity() {
             if (!s.askedNotifications && !granted(Manifest.permission.POST_NOTIFICATIONS)) {
                 add(Manifest.permission.POST_NOTIFICATIONS)
                 s.askedNotifications = true
+                s.notificationsAsked = true
             }
         }
         if (perms.isNotEmpty()) requestPermissions(perms.toTypedArray(), permsRequest)
