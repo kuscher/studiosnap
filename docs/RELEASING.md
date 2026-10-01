@@ -81,5 +81,6 @@ cause and re-run the failed job; re-uploading a version code that is already on 
 **Restoring the secrets** (for example, after a key restore from the backup):
 - `base64 -w0 ~/.config/studiosnap/keystore.jks | gh secret set SIGNING_KEYSTORE_B64 --env release`
 - `gh secret set SIGNING_KEYSTORE_PASS --env release < ~/.config/studiosnap/keystore.pass`
-- `gh secret set PLAY_SERVICE_ACCOUNT_JSON --env play < play-service-account.json` (the Play
-  Console service account's key; the maintainer has it)
+- `jq -c . play-service-account.json | gh secret set PLAY_SERVICE_ACCOUNT_JSON --env play` (the Play
+  Console service account's key; the maintainer has it. One line, so the job log masks the whole
+  value and not every brace)
