@@ -413,8 +413,16 @@ Done when: Screenshot key → drag → paste into Gmail is under 2 s and feels f
   every Googlebook with just a front webcam: the HP reports `camera.front` and `camera.any` only
   (`pm list features`), and it was noticed on a Dell XPS Googlebook. True of every build since 0.4.
 - The manifest now marks `camera`, `camera.autofocus` and `microphone` as `required="false"`. Check after any
-  permission change: `aapt2 dump badging <apk> | grep uses-` must show only `faketouch` as required.
+  permission change: `aapt2 dump badging <apk> | grep uses-` must show only `faketouch` and (since 0.5.2)
+  `android.hardware.type.pc` as required.
 - Version 0.5.1, code 7. Released 2026-10-01: GitHub v0.5.1 from the tag workflow (cert 3A:D1:42:18…, only
   `faketouch` required), and the same commit's bundle, built and signed on the Mac, on Play's closed-testing track,
   SENT FOR REVIEW (Alex: "submit ... to play"). After approval, Play Console › Device catalog should list the Dell
   and the HP as supported.
+
+## 0.5.2 (2026-10-01): Google Play offers StudioSnap to PC-type devices only
+- The manifest requires `android.hardware.type.pc` (Googlebooks report it). The user asked for Play to target
+  Googlebooks, or at least desktop Android devices, before the production release: Play had 5,501 supported
+  device models, mostly phones. Android doesn't enforce the feature at install time, so GitHub's APK installs
+  anywhere. Version 0.5.2, code 8, no code changes. Released with the tag `v0.5.2` (the tag workflow: GitHub
+  release plus a draft on Play's closed-testing track).

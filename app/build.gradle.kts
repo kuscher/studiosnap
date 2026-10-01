@@ -12,8 +12,8 @@ android {
         applicationId = "io.github.kuscher.studiosnap"
         minSdk = 34
         targetSdk = 37
-        versionCode = 7
-        versionName = "0.5.1"
+        versionCode = 8
+        versionName = "0.5.2"
         ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
     }
 
