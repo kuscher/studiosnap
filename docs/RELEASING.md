@@ -11,7 +11,8 @@ notes, push a tag (section B), and GitHub builds, signs and publishes.
 SHA-256 `3A:D1:42:18:66:04:86:BC:D4:88:8E:24:D1:C3:4F:16:84:A2:43:B7:89:6F:6A:BD:6C:72:87:93:F2:F4:57:0F`).
 Android only installs an update over an existing app when both are signed with the same key; a
 release signed with anything else forces everyone to uninstall first. The key lives in the repo's
-`release` environment on GitHub and with the maintainer (see CLAUDE.md), with a backup in private storage; it is never committed.
+`release` environment on GitHub and with the maintainer (see CLAUDE.md), with a private backup;
+it is never committed.
 
 ## Before building
 
