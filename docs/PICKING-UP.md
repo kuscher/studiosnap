@@ -73,7 +73,8 @@ Phase 2b/2c: DONE (text/crop/select-move tools, Frame/beautify panel w/ live pre
   RECENT strip from MediaStore, tap opens Studio).
 - Signed release: key in ~/.config/studiosnap/keystore.jks (+ keystore.pass), NOT in git, SHA-256
   3A:D1:42:18:...:57:0F. `./gradlew :app:assembleRelease` -> 2.36 MB (R8), smoke-tested OK.
-  GitHub release v0.1 has the APK. The key was replaced on 2026-09-30 and is backed up with its password in a private folder.
+  GitHub release v0.1 has the APK. The key was replaced on 2026-09-30 and is backed up privately,
+  outside the repo.
 
 ## Mouse cursor in captures — REVERTED for privacy (2026-09-28)
 - The OS bakes the pointer into `takeScreenshot`, so it can show in area/screen shots.
