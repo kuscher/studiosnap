@@ -5,6 +5,11 @@ SDK 37), native Kotlin + Jetpack Compose, MIT. The floating **capture bar** is t
 **Read `docs/PICKING-UP.md` first** — it holds the live status and how to continue after a VM crash
 (this VM is ephemeral; commit + push at every milestone).
 
+## This repo is public
+The Play listing links here. Keep out of every file, commit message and release note: device serial numbers and
+adb names, build numbers and codenames, what else is installed or open on the owner's devices, the names of his
+private projects and paths into their repos, and where signing keys are backed up (say "backed up privately").
+
 ## Where things are
 - Repo: `~/studiosnap`, GitHub **kuscher/studiosnap** (**public**, MIT). Anything committed is world-readable:
   keep secrets, keys, personal hosts and IPs out of commits, docs and PRs.
