@@ -95,16 +95,16 @@ Contributor notes and the project pickup guide live in [`CLAUDE.md`](CLAUDE.md) 
 
 ## Disclaimer
 
-StudioSnap is a **personal hobby project by Alexander Kuscher**, built in my own free time for fun. It is **not affiliated with, endorsed by, sponsored by, or connected to my employer** — or any other company — in any way, and nothing in this project should be read as an endorsement in either direction. All opinions, code, and design here are my own. Product and company names, including "Googlebook," are trademarks of their respective owners; this is an independent project and is not affiliated with or endorsed by them.
+StudioSnap is a **personal hobby project by Fika Labs**, built in my own free time for fun. It is **not affiliated with, endorsed by, sponsored by, or connected to my employer** — or any other company — in any way, and nothing in this project should be read as an endorsement in either direction. All opinions, code, and design here are my own. Product and company names, including "Googlebook," are trademarks of their respective owners; this is an independent project and is not affiliated with or endorsed by them.
 
 ## License
 
-[MIT](LICENSE) © 2026 Alexander Kuscher
+[MIT](LICENSE)
 
 Background removal uses Google's [MediaPipe Selfie Segmentation](https://storage.googleapis.com/mediapipe-assets/Model%20Card%20MediaPipe%20Selfie%20Segmentation.pdf) model (Apache License 2.0), bundled in the app and run on your device with [LiteRT](https://ai.google.dev/edge/litert).
 
 <div align="center">
 
-<sub>🖥️ Proudly designed, built, and tested <strong>entirely on a Googlebook</strong>.</sub>
+<sub>🖥️ Proudly <strong>developed on a Googlebook</strong>.</sub>
 
 </div>

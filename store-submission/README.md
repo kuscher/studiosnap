@@ -12,6 +12,7 @@ account Fika Labs (7424304467248438473).
 | Short description | [listing/en-US/short-description.txt](listing/en-US/short-description.txt) | 80 characters |
 | Full description | [listing/en-US/full-description.txt](listing/en-US/full-description.txt) | 4,000 characters |
 | Release notes ("What's new") | [listing/en-US/release-notes.txt](listing/en-US/release-notes.txt) | 500 characters |
+| German and French | [listing/de-DE/](listing/de-DE), [listing/fr-FR/](listing/fr-FR): title, short and full description | same limits. The app itself is in English, and both descriptions say so; tool names stay as the app shows them |
 | App icon | [graphics/icon-512.png](graphics/icon-512.png) | 512 × 512 PNG, full square (Play rounds the corners), drawn from the launcher icon's layers |
 | Feature graphic | [graphics/feature-graphic.png](graphics/feature-graphic.png) | 1024 × 500, 24-bit PNG |
 | Screenshots | [graphics/large-screen/](graphics/large-screen) (4) | 1920 × 1080 (16:9), 24-bit PNG. Used for phone, 7-inch, 10-inch and Chromebook |

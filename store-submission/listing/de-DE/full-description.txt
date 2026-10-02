@@ -1,0 +1,27 @@
+StudioSnap ist ein Aufnahmestudio für Android-Laptops. Drück eine Taste und nimm einen Bereich, ein Fenster, einen Teil einer App, den ganzen Bildschirm oder eine scrollende Seite auf. Die Aufnahme ist kopiert, gespeichert und bereit zum Markieren, sobald du loslässt, und nichts verlässt dein Gerät.
+
+Gut zu wissen: Die App ist auf Englisch. Die Namen ihrer Werkzeuge stehen hier deshalb so, wie du sie in der App siehst.
+
+Alles aufnehmen
+Area (Bereich), Sections (ein Klick auf einen Teil einer App), Window (Fenster), Screen (Bildschirm), Scroll (eine ganze Seite, Beta) und Text. Eine Lupe und eine Farbpipette helfen dir, genau das richtige Pixel zu treffen.
+
+Sofort
+Drück überall die Screenshot-Taste oder Action + Umschalt + S. Die Aufnahme liegt in der Zwischenablage und in deiner Galerie, und eine Karte in der Ecke lässt dich sie noch einmal kopieren oder bearbeiten.
+
+Markieren
+Pfeile, Formen, Stift, Textmarker, Text, nummerierte Schritte, Weichzeichnen und Schwärzen, Zuschneiden. Frames geben der Aufnahme mit einem Klick einen Hintergrund, einen Rand und runde Ecken.
+
+Text herausholen
+Kopiere markierbaren Text aus jedem Fenster, oder lies Text direkt aus Bildern, PDFs und Canvas-Apps, mit einer Texterkennung, die auf deinem Gerät läuft.
+
+Aufzeichnen
+Speichere eine Bildschirmaufzeichnung als MP4, mit deiner Stimme vom Mikrofon und dem Ton deiner Apps, und wenn du magst mit einem schwebenden Kamerabild von dir. Remove background zeigt nur dich über dem Bildschirm.
+
+Warum StudioSnap eine Bedienungshilfe nutzt
+Der Bedienungshilfen-Dienst (Accessibility Service) von StudioSnap bemerkt die Aufnahmetaste und liest den Bildschirm, wenn du aufnimmst, um Fenster, Teile von Apps und markierbaren Text zu finden. Er zeichnet nicht auf und speichert nicht, was du tippst, wohin du mit der Maus gehst oder was du berührst. Du schaltest ihn selbst bei der einmaligen Einrichtung ein.
+
+Privat
+Keine Internet-Berechtigung, keine Konten, keine Werbung, keine Analyse. Screenshots, Aufzeichnungen und erkannter Text bleiben auf deinem Gerät. Mikrofon und Kamera werden nur benutzt, während du mit ihnen aufzeichnest, und Android zeigt das an.
+
+Frei und quelloffen
+StudioSnap ist ein privates Hobbyprojekt, nicht verbunden mit einem Arbeitgeber und von keinem unterstützt. Der Code steht unter der MIT-Lizenz: github.com/kuscher/studiosnap
